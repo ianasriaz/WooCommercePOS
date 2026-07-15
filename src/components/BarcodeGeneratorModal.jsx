@@ -40,7 +40,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
   const unmarkBarcodesPrinted = usePosStore((state) => state.unmarkBarcodesPrinted);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCatId, setSelectedCatId] = useState('all');
+  const [selectedCatId, setSelectedCatId] = useState(null);
   const [activeTab, setActiveTab] = useState('missing'); // 'missing' | 'ready' | 'printed'
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 30;
@@ -430,9 +430,15 @@ export default function BarcodeGeneratorModal({ onClose }) {
                   {getCurrentViewItems().length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', padding: '80px 0', color: T.inkSoft }}>
-                        {activeTab === 'missing' && 'All products in this view have barcodes!'}
-                        {activeTab === 'ready' && 'No barcodes ready to print for this view.'}
-                        {activeTab === 'printed' && 'No barcodes have been printed yet.'}
+                        {selectedCatId === null ? (
+                          'Please select a category from the sidebar to view products.'
+                        ) : (
+                          <>
+                            {activeTab === 'missing' && 'All products in this view have barcodes!'}
+                            {activeTab === 'ready' && 'No barcodes ready to print for this view.'}
+                            {activeTab === 'printed' && 'No barcodes have been printed yet.'}
+                          </>
+                        )}
                       </td>
                     </tr>
                   )}
