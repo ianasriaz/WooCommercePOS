@@ -1,0 +1,220 @@
+import axios from 'axios';
+import { useAuthStore } from '../store/useAuthStore';
+
+const wcClient = axios.create({
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+wcClient.interceptors.request.use((config) => {
+  const { storeUrl, wcConsumerKey, wcConsumerSecret } = useAuthStore.getState();
+  
+  if (storeUrl && wcConsumerKey && wcConsumerSecret) {
+    config.baseURL = `${storeUrl.replace(/\/$/, '')}/wp-json/`;
+    const authToken = btoa(`${wcConsumerKey}:${wcConsumerSecret}`);
+    config.headers.Authorization = `Basic ${authToken}`;
+  }
+  
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+export const fetchProducts = async () => {
+  const perPage = 100;
+
+  // 1. Fetch the first page to determine total pages
+  const firstResponse = await wcClient.get('/wc/v3/products', {
+    params: {
+      _fields:
+        'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created',
+      per_page: perPage,
+      page: 1,
+    },
+  });
+
+  let allProducts = [...firstResponse.data];
+  const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
+
+  // 2. Fetch all remaining pages concurrently
+  if (totalPages > 1) {
+    const promises = [];
+    for (let p = 2; p <= totalPages; p++) {
+      promises.push(
+        wcClient.get('/wc/v3/products', {
+          params: {
+            _fields:
+              'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created',
+            per_page: perPage,
+            page: p,
+          },
+        })
+      );
+    }
+    
+    const results = await Promise.all(promises);
+    results.forEach((res) => {
+      allProducts = [...allProducts, ...res.data];
+    });
+  }
+
+  return allProducts;
+};
+
+export const fetchVariations = async (productId) => {
+  const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
+    params: {
+      _fields: 'id,attributes,price,stock_quantity,stock_status,manage_stock,image',
+      per_page: 100,
+    },
+  });
+
+  return response.data;
+};
+
+export const checkStock = async (productId, variationId = null) => {
+  const parseStock = (data) => {
+    if (typeof data === 'number') {
+      return data;
+    }
+
+    if (typeof data?.stock === 'number') {
+      return data.stock;
+    }
+
+    if (typeof data?.stock_quantity === 'number') {
+      return data.stock_quantity;
+    }
+
+    if (data?.manage_stock === false && data?.stock_status === 'instock') {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    if (data?.stock_status === 'outofstock') {
+      return 0;
+    }
+
+    return Number.parseInt(data?.stock ?? data?.stock_quantity ?? 0, 10) || 0;
+  };
+
+  try {
+    const response = await wcClient.get('/custom-pos/v1/check-stock', {
+      params: {
+        product_id: productId,
+        ...(variationId ? { variation_id: variationId } : {}),
+      },
+    });
+
+    return parseStock(response.data);
+  } catch (error) {
+    // If the custom endpoint doesn't exist, WP might throw 401/403 (auth mismatch on core namespaces) or 404
+    if (
+      error.response?.status !== 404 &&
+      error.response?.status !== 401 &&
+      error.response?.status !== 403
+    ) {
+      throw error;
+    }
+
+    const stockRoute = variationId
+      ? `/wc/v3/products/${productId}/variations/${variationId}`
+      : `/wc/v3/products/${productId}`;
+
+    const fallbackResponse = await wcClient.get(stockRoute, {
+      params: {
+        _fields: 'manage_stock,stock_quantity,stock_status',
+      },
+    });
+
+    return parseStock(fallbackResponse.data);
+  }
+};
+
+const PAYMENT_METHOD_MAP = {
+  cash: {
+    method: 'pos_cash',
+    title: 'In-Store Cash',
+  },
+  bank_transfer: {
+    method: 'bacs',
+    title: 'Bank Transfer',
+  },
+};
+
+export const createPosOrder = async (cartItems, customerDetails = {}, paymentOption = 'cash') => {
+  const line_items = cartItems.map((item) => ({
+    product_id: item.id,
+    variation_id: item.variation_id || undefined,
+    quantity: item.quantity,
+  }));
+
+  const selectedPayment = PAYMENT_METHOD_MAP[paymentOption] || PAYMENT_METHOD_MAP.cash;
+
+  const billing = {
+    email: 'pos-checkout@store.local'
+  };
+  if (customerDetails.name?.trim()) billing.first_name = customerDetails.name.trim();
+  if (customerDetails.email?.trim()) billing.email = customerDetails.email.trim();
+  if (customerDetails.phone?.trim()) billing.phone = customerDetails.phone.trim();
+
+  const payload = {
+    status: 'completed',
+    set_paid: true,
+    payment_method: selectedPayment.method,
+    payment_method_title: selectedPayment.title,
+    billing,
+    line_items,
+  };
+
+  try {
+    const response = await wcClient.post('/wc/v3/orders', payload);
+    return response.data;
+  } catch (error) {
+    const apiMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'Checkout request failed.';
+
+    // Helpful for diagnosing WooCommerce / Hetzner rejections during checkout.
+    // eslint-disable-next-line no-console
+    console.error(error.response?.data);
+    const wrappedError = new Error(apiMessage);
+    wrappedError.cause = error;
+    throw wrappedError;
+  }
+};
+
+export const fetchTodaysSales = async () => {
+  const now = new Date();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const response = await wcClient.get('/wc/v3/orders', {
+    params: {
+      after: startOfDay.toISOString(),
+      before: endOfDay.toISOString(),
+      status: 'processing,completed',
+      per_page: 100,
+      _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via',
+    },
+  });
+
+  return response.data;
+};
+
+export const fetchRecentOrders = async () => {
+  const response = await wcClient.get('/wc/v3/orders', {
+    params: {
+      per_page: 100,
+      _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via',
+    },
+  });
+  return response.data;
+};
+
+export default wcClient;

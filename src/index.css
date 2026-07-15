@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+@media print {
+  @page {
+    size: 72mm auto;
+    margin: 2mm;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body > #root {
+    display: none !important;
+  }
+
+  body > .receipt-print-overlay {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-height: auto !important;
+    background: #fff !important;
+    padding: 0 !important;
+  }
+
+  body > .receipt-print-overlay .receipt-print-sheet {
+    display: block !important;
+    position: static !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 1.5mm !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  body > .receipt-print-overlay .receipt-print-sheet * {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body > .receipt-print-overlay .print\:hidden {
+    display: none !important;
+  }
+}
