@@ -87,6 +87,7 @@ const IcoPlus = ({ s = 14 }) => <Svg size={s} strokeWidth="2"><path d="M5 12h14M
 const IcoMinus = ({ s = 14 }) => <Svg size={s} strokeWidth="2"><path d="M5 12h14" /></Svg>;
 const IcoTrash = ({ s = 14 }) => <Svg size={s}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></Svg>;
 const IcoScan = ({ s = 16 }) => <Svg size={s}><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="16" y="3" width="5" height="5" rx="1" /><rect x="3" y="16" width="5" height="5" rx="1" /><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M7 17H4M17 12h.01M12 12h.01" /></Svg>;
+const IcoBarcode = ({ s = 16 }) => <Svg size={s}><path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14"/></Svg>;
 const IcoCash = ({ s = 14 }) => <Svg size={s}><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></Svg>;
 const IcoBank = ({ s = 14 }) => <Svg size={s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></Svg>;
 const IcoArrowLeft = ({ s = 14 }) => <Svg size={s}><path d="M19 12H5M12 5l-7 7 7 7" /></Svg>;
@@ -257,6 +258,14 @@ function PosTerminal() {
   const audioContextRef = useRef(null);
   const cashTenderInputRef = useRef(null);
   const checkoutButtonRef = useRef(null);
+
+  // Robustly auto-focus the search bar when the POS terminal mounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const playPosSound = (type) => {
     try {
@@ -776,18 +785,11 @@ function PosTerminal() {
               
               <div style={{ height: 24, width: 1, background: T.line, flexShrink: 0, margin: '0 4px' }} />
               
-              {isSearchFocused ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: T.lineSoft, color: T.ink, borderRadius: 6 }}>
-                  <div style={{ animation: 'posPulse 2s infinite', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <IcoScan s={16} />
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: T.lineSoft, color: T.ink, borderRadius: 6 }}>
+                <div style={{ animation: 'posPulse 2s infinite', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IcoBarcode s={16} />
                 </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.inkFaint, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <kbd style={{ background: T.lineSoft, padding: '3px 6px', borderRadius: 4, fontFamily: 'inherit', color: T.inkSoft, fontSize: 10 }}>F1</kbd>
-                  to Scan
-                </div>
-              )}
+              </div>
             </div>
             
             {/* Integrated Notification Ribbon */}
