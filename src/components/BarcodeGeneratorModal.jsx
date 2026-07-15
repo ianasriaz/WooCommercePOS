@@ -27,6 +27,8 @@ export default function BarcodeGeneratorModal({ onClose }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCatId, setSelectedCatId] = useState('all');
   const [activeTab, setActiveTab] = useState('missing'); // 'missing' | 'ready'
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 30;
   
   const [loadedVariations, setLoadedVariations] = useState({});
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
@@ -65,10 +67,19 @@ export default function BarcodeGeneratorModal({ onClose }) {
     return filtered;
   }, [products, selectedCatId, searchTerm]);
 
+  // Reset page on filter change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCatId, searchTerm, activeTab]);
+
+  const paginatedBaseProducts = useMemo(() => {
+    return visibleBaseProducts.slice(0, page * ITEMS_PER_PAGE);
+  }, [visibleBaseProducts, page]);
+
   useEffect(() => {
     let isMounted = true;
     const loadVars = async () => {
-      const variableProducts = visibleBaseProducts.filter(p => isVariableProduct(p) && !loadedVariations[p.id]);
+      const variableProducts = paginatedBaseProducts.filter(p => isVariableProduct(p) && !loadedVariations[p.id]);
       if (variableProducts.length === 0) return;
       
       setLoadingCategoryVars(true);
@@ -123,7 +134,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
       }
     });
     return items;
-  }, [visibleBaseProducts, loadedVariations]);
+  }, [paginatedBaseProducts, loadedVariations]);
 
   const missingItems = useMemo(() => flattenedItems.filter(i => !i.hasSku), [flattenedItems]);
   const readyItems = useMemo(() => flattenedItems.filter(i => i.hasSku), [flattenedItems]);
@@ -361,12 +372,19 @@ export default function BarcodeGeneratorModal({ onClose }) {
                   {(activeTab === 'missing' ? missingItems : readyItems).length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', padding: '60px 0', color: T.inkSoft }}>
-                        {activeTab === 'missing' ? 'All products in this category have barcodes!' : 'No barcodes generated yet for this category.'}
+                        {activeTab === 'missing' ? 'All products in this view have barcodes!' : 'No barcodes generated yet for this view.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              {visibleBaseProducts.length > page * ITEMS_PER_PAGE && (
+                <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
+                  <button onClick={() => setPage(p => p + 1)} style={{ background: T.surfaceHover, border: `1px solid ${T.line}`, color: T.ink, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+                    Load More Products
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
