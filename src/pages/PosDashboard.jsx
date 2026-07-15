@@ -230,7 +230,8 @@ function PosDashboard() {
     (async () => {
       setLoading(true);
       try {
-        const needsFullSync = products.length === 0 || (products[0] && products[0].categories === undefined);
+        // Force a re-sync if the cache is empty or if ANY product is missing categories
+        const needsFullSync = products.length === 0 || products.some(p => p.categories === undefined);
         const [catalog, sales] = await Promise.all([
           needsFullSync ? fetchProducts() : Promise.resolve(products),
           fetchTodaysSales()

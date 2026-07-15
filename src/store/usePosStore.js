@@ -22,6 +22,7 @@ const initialState = {
   products: [],
   cart: [],
   variationsCache: {},
+  printedBarcodes: [], // Track SKUs that have been printed
   lastSyncTimestamp: null,
   _hasHydrated: false,
 };
@@ -53,6 +54,14 @@ export const usePosStore = create(
       
       setVariationsCache: (productId, variations) => set((state) => ({
         variationsCache: { ...state.variationsCache, [productId]: variations }
+      })),
+
+      markBarcodesPrinted: (skus) => set((state) => ({
+        printedBarcodes: Array.from(new Set([...state.printedBarcodes, ...skus]))
+      })),
+
+      unmarkBarcodesPrinted: (skus) => set((state) => ({
+        printedBarcodes: state.printedBarcodes.filter(sku => !skus.includes(sku))
       })),
 
       addToCart: (product, variation = null) => {
