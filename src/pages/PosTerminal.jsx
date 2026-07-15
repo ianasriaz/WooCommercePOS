@@ -114,6 +114,11 @@ const ShimmerStyle = () => (
       from { transform: translate(-50%, -20px); opacity: 0; }
       to { transform: translate(-50%, 0); opacity: 1; }
     }
+    @keyframes posPulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
   `}</style>
 );
 const Skel = ({ w = '100%', h = 14, radius = 4, dark = false, style = {} }) => (
@@ -231,6 +236,7 @@ function PosTerminal() {
   const [checkoutError, setCheckoutError] = useState('');
   const [completedOrder, setCompletedOrder] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(true);
   const [paymentOption, setPaymentOption] = useState('cash');
   const [quantityDrafts, setQuantityDrafts] = useState({});
   const [cartWarning, setCartWarning] = useState('');
@@ -592,6 +598,7 @@ function PosTerminal() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.key === 'F1') { e.preventDefault(); searchInputRef.current?.focus(); return; }
       if (e.key === 'F2') { e.preventDefault(); setPaymentOption('cash'); setTimeout(() => cashTenderInputRef.current?.focus(), 0); return; }
       if (e.key === 'F3') { e.preventDefault(); setPaymentOption('bank_transfer'); return; }
       if (e.key === 'F9') { e.preventDefault(); if (cart.length > 0 && !isCheckingOut && !isCashShort) handleCheckout(); }
@@ -737,29 +744,49 @@ function PosTerminal() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
 
           {/* Search bar & Integrated Notice */}
-          <div style={{ ...S.panel, flexShrink: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ color: T.inkFaint, flexShrink: 0 }}><IcoSearch s={17} /></div>
+          <div style={{
+            ...S.panel, flexShrink: 0, padding: 0, display: 'flex', flexDirection: 'column',
+            border: isSearchFocused ? `2px solid ${T.accent}` : `1px solid ${T.line}`,
+            boxShadow: isSearchFocused ? `0 0 0 4px ${T.accent}20` : S.panel.boxShadow,
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: isSearchFocused ? 'translateY(-1px)' : 'none',
+          }}>
+            <div style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ color: isSearchFocused ? T.accent : T.inkFaint, flexShrink: 0, transition: 'color 0.2s' }}>
+                <IcoSearch s={20} />
+              </div>
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); if (scanNotice.text) setScanNotice({ type: '', text: '' }); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchSubmit(); } }}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
                 placeholder="Search by Name, SKU or Last 6 Digits of Barcode..."
-                style={{ border: 'none', background: 'transparent', padding: '9px 0', fontSize: 14.5, flex: 1, outline: 'none', color: T.ink, fontWeight: 500, fontFamily: T.sans }}
+                style={{ border: 'none', background: 'transparent', padding: '10px 0', fontSize: 16, flex: 1, outline: 'none', color: T.ink, fontWeight: 600, fontFamily: T.sans }}
                 autoFocus
               />
               {searchTerm && (
                 <button type="button" onClick={() => setSearchTerm('')}
                   style={{ background: T.lineSoft, border: 'none', color: T.inkSoft, cursor: 'pointer', padding: 6, borderRadius: 20 }}>
-                  <IcoX s={13} />
+                  <IcoX s={14} />
                 </button>
               )}
-              <div style={{ height: 20, width: 1, background: T.line, flexShrink: 0, margin: '0 2px' }} />
-              <span style={{ fontFamily: T.mono, fontSize: 11.5, fontWeight: 500, color: T.inkSoft, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {filteredProducts.length}/{products.length}
-              </span>
+              
+              <div style={{ height: 24, width: 1, background: T.line, flexShrink: 0, margin: '0 4px' }} />
+              
+              {isSearchFocused ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '6px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', animation: 'posPulse 2s infinite' }} />
+                  Listening for Scanner
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.inkFaint, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <kbd style={{ background: T.lineSoft, padding: '3px 6px', borderRadius: 4, fontFamily: 'inherit', color: T.inkSoft, fontSize: 10 }}>F1</kbd>
+                  to Scan
+                </div>
+              )}
             </div>
             
             {/* Integrated Notification Ribbon */}
