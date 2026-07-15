@@ -50,3 +50,14 @@ When assisting with this codebase, adhere strictly to the following rules:
 3. **NO LOCALSTORAGE**: Never use `localStorage` or `sessionStorage`. All persistent data must go through the Zustand stores which are wired to IndexedDB (`idb-storage.js`) to prevent quota limits.
 4. **OPTIMIZE FOR SPEED**: The POS is designed for cashiers. It must feel instantaneous. Avoid unnecessary re-renders, use `useMemo` for heavy catalog filtering, and avoid making blocking network requests on every keystroke. 
 5. **KEEP IT STANDALONE**: The React app should remain a completely decoupled SPA that communicates via the REST API. Do not write WordPress/PHP code unless modifying the Barcode Bridge plugin specifically.
+
+---
+
+## 🕒 Recent Updates & Architecture Evolutions (July 2026)
+
+- **Sync Architecture**: The single "Sync" button has been deprecated in favor of a dual-button cluster logic: **Sync Stock** (Delta Sync, fetching only recently modified products via `lastSyncTimestamp`) and **Sync Inventory** (Full catalog rebuild). 
+- **Dashboard Consistency**: The POS Dashboard now fully leverages the Delta Sync engine to quickly fetch stock updates without blocking or re-fetching the entire catalog.
+- **Design Overhaul (Checkout Pane)**: The checkout pane was refined to use strict monochrome aesthetics (`#000000` pitch black background), white border accents for unselected/disabled buttons, and prominent typography.
+- **Cart UI Polish**: Stock status has been integrated as an inline badge (e.g., "X in stock" or "In-Stock") next to the product title. Individual item prices are hidden to declutter the checkout flow; only the computed line total is shown.
+- **Receipts**: Support for `whiteSpace: 'pre-wrap'` implemented for store addresses to preserve layout from the Store Profile settings.
+- **Validation**: Customer names are now strictly mandatory in the checkout modal alongside phone numbers.
