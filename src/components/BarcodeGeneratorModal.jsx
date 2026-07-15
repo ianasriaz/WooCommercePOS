@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Barcode from 'react-barcode';
 import { usePosStore } from '../store/usePosStore';
 import { generateStoreEAN13 } from '../utils/barcodeUtils';
@@ -468,55 +469,51 @@ export default function BarcodeGeneratorModal({ onClose }) {
           </div>
         </div>
       </div>
-
+      
       {/* The actual print layout (only visible when printing) */}
-      <div className="print-only">
-        {itemsToPrint.map((item, idx) => (
-          <div key={idx} style={{ 
-            width: '2in', height: '1.25in', boxSizing: 'border-box', padding: '0.1in',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            pageBreakAfter: 'always', overflow: 'hidden', background: '#fff', color: '#000'
-          }}>
-            <div style={{ fontSize: '10pt', fontWeight: 'bold', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', marginBottom: 4 }}>
-              {item.name}
+      {createPortal(
+        <div className="print-only">
+          {itemsToPrint.map((item, idx) => (
+            <div key={idx} style={{ 
+              width: '2in', height: '1.25in', boxSizing: 'border-box', padding: '0.1in',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              pageBreakAfter: 'always', overflow: 'hidden', background: '#fff', color: '#000'
+            }}>
+              <div style={{ fontSize: '10pt', fontWeight: 'bold', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', marginBottom: 4 }}>
+                {item.name}
+              </div>
+              <Barcode value={item.sku} format="CODE128" width={1.5} height={40} fontSize={10} background="#ffffff" lineColor="#000000" margin={0} />
+              <div style={{ fontSize: '10pt', fontWeight: 'bold', marginTop: 4 }}>
+                PKR {Number(item.price).toLocaleString()}
+              </div>
             </div>
-            <Barcode value={item.sku} format="CODE128" width={1.5} height={40} fontSize={10} background="#ffffff" lineColor="#000000" margin={0} />
-            <div style={{ fontSize: '10pt', fontWeight: 'bold', marginTop: 4 }}>
-              PKR {Number(item.price).toLocaleString()}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>,
+        document.body
+      )}
 
       <style>{`
         @media screen {
           .print-only { display: none !important; }
         }
         @media print {
-          body * { visibility: hidden; }
-          .no-print { display: none !important; }
+          @page { size: 2in 1.25in; margin: 0; }
           
-          .barcode-modal-overlay {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            display: block !important;
-            background: transparent !important;
-            align-items: flex-start !important;
-            justify-content: flex-start !important;
+          /* Hide all elements in the body EXCEPT our print portal */
+          body > :not(.print-only) {
+            display: none !important;
+          }
+          
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
           }
 
-          .print-only, .print-only * { visibility: visible !important; }
           .print-only { 
             display: block !important; 
-            position: absolute !important; 
-            left: 0 !important; 
-            top: 0 !important; 
             width: 2in !important; 
           }
-          @page { size: 2in 1.25in; margin: 0; }
         }
       `}</style>
     </div>

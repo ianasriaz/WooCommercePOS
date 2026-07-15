@@ -563,21 +563,28 @@ function PosTerminal() {
     const q = normalizeIdentifier(searchTerm);
     if (!q) return;
 
-    // First try the robust barcode lookup (handles API fallback and variations)
-    // Only do this if it's purely numeric or at least 5 chars (likely a SKU/barcode)
-    if (/^\d{6,13}$/.test(q) || q.length >= 5) {
+    // 1. Is it an exact barcode match in the local cache?
+    if (productCodeLookup.has(q)) {
       await handleBarcodeScan(q);
       setSearchTerm('');
       searchInputRef.current?.focus();
       return;
     }
 
-    // Fallback: Fuzzy text search (e.g., typed "Nike", found 1 result)
+    // 2. Fallback: Fuzzy text search (e.g., typed partial "4126", found 1 result)
     if (filteredProducts.length === 1) {
       const s = filteredProducts[0];
       if (isVariableProduct(s)) { await handleOpenVariations(s); setScanNotice({ type: 'info', text: `Matched ${s.name}. Select variation.` }); }
       else { addToCart(s); playPosSound('add'); setScanNotice({ type: 'success', text: `Added ${s.name} to cart.` }); }
       setSearchTerm(''); searchInputRef.current?.focus(); return;
+    }
+
+    // 3. Last Resort: Not in cache, but looks like a full 8+ digit barcode scan (e.g. un-synced product).
+    if (/^\d{8,13}$/.test(q)) {
+      await handleBarcodeScan(q);
+      setSearchTerm('');
+      searchInputRef.current?.focus();
+      return;
     }
     
     setScanNotice({ type: 'error', text: 'No single product found. Please select from the list.' });
@@ -739,7 +746,7 @@ function PosTerminal() {
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); if (scanNotice.text) setScanNotice({ type: '', text: '' }); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchSubmit(); } }}
-                placeholder="Search by name, SKU or scan barcode…"
+                placeholder="Search by Name, SKU or Last 6 Digits of Barcode..."
                 style={{ border: 'none', background: 'transparent', padding: '9px 0', fontSize: 14.5, flex: 1, outline: 'none', color: T.ink, fontWeight: 500, fontFamily: T.sans }}
                 autoFocus
               />

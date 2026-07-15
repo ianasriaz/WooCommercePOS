@@ -146,6 +146,7 @@ export const usePosStore = create(
       partialize: (state) => ({
         products: state.products,
         cart: state.cart,
+        printedBarcodes: state.printedBarcodes,
         lastSyncTimestamp: state.lastSyncTimestamp,
       }),
       onRehydrateStorage: () => (state) => {

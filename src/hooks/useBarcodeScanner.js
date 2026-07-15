@@ -8,10 +8,10 @@ import { normalizeBarcode } from '../utils/barcodeUtils';
  * 
  * @param {Object} options
  * @param {Function} options.onScan - Callback triggered when a barcode is successfully parsed.
- * @param {number} [options.maxInterval=40] - Max milliseconds between keystrokes to be considered a scanner.
+ * @param {number} [options.maxInterval=120] - Max milliseconds between keystrokes to be considered a scanner.
  * @param {number} [options.minLength=3] - Minimum length of a valid barcode.
  */
-export const useBarcodeScanner = ({ onScan, maxInterval = 40, minLength = 3 }) => {
+export const useBarcodeScanner = ({ onScan, maxInterval = 120, minLength = 3 }) => {
   const buffer = useRef('');
   const lastKeyTime = useRef(0);
   const timeoutRef = useRef(null);
