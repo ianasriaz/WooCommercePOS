@@ -20,6 +20,12 @@ export const useBarcodeScanner = ({ onScan, maxInterval = 120, minLength = 3 }) 
     // Ignore modifier keys
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
+    // Do NOT intercept if the user is focused on an input or textarea
+    const activeTag = document.activeElement?.tagName?.toLowerCase();
+    if (activeTag === 'input' || activeTag === 'textarea') {
+      return;
+    }
+
     if (e.key === 'Enter') {
       const now = performance.now();
       const timeDiff = now - lastKeyTime.current;
