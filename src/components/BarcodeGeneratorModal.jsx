@@ -470,7 +470,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
       </div>
 
       {/* The actual print layout (only visible when printing) */}
-      <div className="print-only" style={{ display: 'none' }}>
+      <div className="print-only">
         {itemsToPrint.map((item, idx) => (
           <div key={idx} style={{ 
             width: '2in', height: '1.25in', boxSizing: 'border-box', padding: '0.1in',
@@ -489,11 +489,33 @@ export default function BarcodeGeneratorModal({ onClose }) {
       </div>
 
       <style>{`
+        @media screen {
+          .print-only { display: none !important; }
+        }
         @media print {
           body * { visibility: hidden; }
           .no-print { display: none !important; }
-          .print-only, .print-only * { visibility: visible; }
-          .print-only { display: block !important; position: absolute; left: 0; top: 0; width: 2in; }
+          
+          .barcode-modal-overlay {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            display: block !important;
+            background: transparent !important;
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+          }
+
+          .print-only, .print-only * { visibility: visible !important; }
+          .print-only { 
+            display: block !important; 
+            position: absolute !important; 
+            left: 0 !important; 
+            top: 0 !important; 
+            width: 2in !important; 
+          }
           @page { size: 2in 1.25in; margin: 0; }
         }
       `}</style>
