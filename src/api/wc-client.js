@@ -25,7 +25,7 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
   const perPage = 100;
 
   const baseParams = {
-    _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,status',
+    _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,status,categories',
     per_page: perPage,
   };
 

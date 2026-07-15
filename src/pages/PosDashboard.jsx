@@ -230,12 +230,13 @@ function PosDashboard() {
     (async () => {
       setLoading(true);
       try {
+        const needsFullSync = products.length === 0 || (products[0] && products[0].categories === undefined);
         const [catalog, sales] = await Promise.all([
-          products.length === 0 ? fetchProducts() : Promise.resolve(products),
+          needsFullSync ? fetchProducts() : Promise.resolve(products),
           fetchTodaysSales()
         ]);
         if (!alive) return;
-        if (products.length === 0) setProducts(catalog);
+        if (needsFullSync) setProducts(catalog);
         setTodayOrders(sales);
       } catch {
         if (alive) setDashboardError('Failed to load dashboard data. Please try again.');
