@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { fetchProducts, fetchTodaysSales } from '../api/wc-client';
 import { usePosStore } from '../store/usePosStore';
 import Layout from '../components/Layout';
-
+import BarcodeGeneratorModal from '../components/BarcodeGeneratorModal';
 /* ─── Design tokens ────────────────────────────────────────── */
 const T = {
   ink: '#0f172a',
@@ -49,6 +49,7 @@ const IcoExpand = ({ size = 13 }) => <Svg size={size}><path d="M8 3H3v5" /><path
 const IcoCollapse = ({ size = 13 }) => <Svg size={size}><path d="M9 3H3v6" /><path d="M15 3h6v6" /><path d="M3 15v6h6" /><path d="M21 15v6h-6" /></Svg>;
 const IcoPlus = ({ size = 16 }) => <Svg size={size} strokeWidth="2"><path d="M12 5v14" /><path d="M5 12h14" /></Svg>;
 const IcoArrow = ({ size = 12 }) => <Svg size={size} strokeWidth="2"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></Svg>;
+const IcoBarcode = ({ size = 14 }) => <Svg size={size}><path d="M3 5v14M7 5v14M10 5v14M14 5v14M17 5v14M21 5v14" /></Svg>;
 
 /* ─── Shimmer keyframes (once, scoped) ─────────────────────── */
 const ShimmerStyle = () => (
@@ -188,6 +189,7 @@ function PosDashboard() {
   const [dashboardError, setDashboardError] = useState('');
   const [todayOrders, setTodayOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
 
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -345,6 +347,22 @@ function PosDashboard() {
             </button>
 
 
+
+            <button
+              type="button"
+              onClick={() => setShowBarcodeModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, margin: 0,
+                background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, boxSizing: 'border-box',
+                color: T.inkSoft, padding: '0 16px', height: 42, fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit',
+                cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.inkFaint; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.line; }}
+            >
+              <IcoBarcode size={14} />
+              Print Barcodes
+            </button>
 
             <Link
               to="/sale"
@@ -592,6 +610,10 @@ function PosDashboard() {
           </div>
         </div>
       </div>
+
+      {showBarcodeModal && (
+        <BarcodeGeneratorModal onClose={() => setShowBarcodeModal(false)} />
+      )}
     </Layout>
   );
 }

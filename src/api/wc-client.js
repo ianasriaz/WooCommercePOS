@@ -225,4 +225,32 @@ export const fetchRecentOrders = async () => {
   return response.data;
 };
 
+export const updateProductSKUs = async (updates) => {
+  // To avoid hitting API rate limits on massive updates, we process them in chunks
+  const CHUNK_SIZE = 5;
+  
+  for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+    const chunk = updates.slice(i, i + CHUNK_SIZE);
+    const promises = chunk.map((update) => {
+      if (update.variationId) {
+        return wcClient.put(`/wc/v3/products/${update.productId}/variations/${update.variationId}`, {
+          sku: update.sku
+        });
+      } else {
+        return wcClient.put(`/wc/v3/products/${update.productId}`, {
+          sku: update.sku
+        });
+      }
+    });
+
+    const results = await Promise.allSettled(promises);
+    const failed = results.filter(r => r.status === 'rejected');
+    if (failed.length > 0) {
+      console.error('Failed to update some SKUs:', failed);
+      throw new Error(`Failed to update ${failed.length} SKUs in batch`);
+    }
+  }
+  return true;
+};
+
 export default wcClient;

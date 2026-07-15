@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { checkStock, createPosOrder, fetchProducts, fetchVariations } from '../api/wc-client';
 import ReceiptModal from '../components/ReceiptModal';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -279,6 +280,82 @@ function PosTerminal() {
 
   const _hasHydrated = usePosStore((s) => s._hasHydrated);
 
+  const handleBarcodeScan = async (code) => {
+    if (!code) return;
+    setCartWarning('');
+
+    // 1. Check local catalog first
+    let foundProduct = null;
+    let foundVariation = null;
+
+    for (const p of products) {
+      if (extractBarcodeCandidates(p).includes(code)) {
+        foundProduct = p;
+        break;
+      }
+      const cachedVars = variationsCache[p.id];
+      if (cachedVars) {
+        const matchingVar = cachedVars.find(v => extractBarcodeCandidates(v).includes(code));
+        if (matchingVar) {
+          foundProduct = p;
+          foundVariation = matchingVar;
+          break;
+        }
+      }
+    }
+
+    if (foundProduct) {
+      if (isVariableProduct(foundProduct) && !foundVariation) {
+        handleOpenVariations(foundProduct);
+      } else {
+        addToCart(foundProduct, foundVariation || null, 1);
+        playPosSound('checkout'); // generic scan sound
+        setScanNotice({ type: 'success', text: `Scanned: ${foundProduct.name}` });
+        setTimeout(() => setScanNotice({ type: '', text: '' }), 3000);
+      }
+      return;
+    }
+
+    // 2. Fallback: Query API directly (for uncached variations or new products)
+    try {
+      setScanNotice({ type: 'info', text: `Searching server for ${code}...` });
+      const { default: wcClient } = await import('../api/wc-client');
+      const res = await wcClient.get('/wc/v3/products', { params: { sku: code } });
+      
+      if (res.data && res.data.length > 0) {
+        const apiProduct = res.data[0];
+        if (apiProduct.type === 'variable') {
+          const vars = await fetchVariations(apiProduct.id);
+          setVariationsCache(apiProduct.id, vars); // Cache for future instant scans
+          const exactVar = vars.find(v => extractBarcodeCandidates(v).includes(code));
+          
+          if (exactVar) {
+            addToCart(apiProduct, exactVar, 1);
+            playPosSound('checkout');
+            setScanNotice({ type: 'success', text: `Scanned: ${apiProduct.name}` });
+            setTimeout(() => setScanNotice({ type: '', text: '' }), 3000);
+            return;
+          } else {
+            handleOpenVariations(apiProduct);
+            return;
+          }
+        } else {
+          addToCart(apiProduct, null, 1);
+          playPosSound('checkout');
+          setScanNotice({ type: 'success', text: `Scanned: ${apiProduct.name}` });
+          setTimeout(() => setScanNotice({ type: '', text: '' }), 3000);
+          return;
+        }
+      }
+      
+      setScanNotice({ type: 'error', text: `Barcode ${code} not found.` });
+    } catch (err) {
+      setScanNotice({ type: 'error', text: `Error searching for ${code}.` });
+    }
+  };
+
+  useBarcodeScanner({ onScan: handleBarcodeScan });
+
   useEffect(() => {
     let alive = true;
     if (!_hasHydrated) return; // Wait for IndexedDB to load
@@ -485,21 +562,25 @@ function PosTerminal() {
   const handleSearchSubmit = async () => {
     const q = normalizeIdentifier(searchTerm);
     if (!q) return;
-    const exact = productCodeLookup.get(q) || [];
-    if (exact.length === 1) {
-      const m = exact[0];
-      if (isVariableProduct(m)) { await handleOpenVariations(m); setScanNotice({ type: 'info', text: `Matched ${m.name}. Select variation.` }); }
-      else { addToCart(m); playPosSound('add'); setScanNotice({ type: 'success', text: `Added ${m.name} to cart.` }); }
-      setSearchTerm(''); searchInputRef.current?.focus(); return;
+
+    // First try the robust barcode lookup (handles API fallback and variations)
+    // Only do this if it's purely numeric or at least 5 chars (likely a SKU/barcode)
+    if (/^\d{6,13}$/.test(q) || q.length >= 5) {
+      await handleBarcodeScan(q);
+      setSearchTerm('');
+      searchInputRef.current?.focus();
+      return;
     }
-    if (exact.length > 1) { setScanNotice({ type: 'info', text: `Code matched ${exact.length} products. Select manually.` }); return; }
+
+    // Fallback: Fuzzy text search (e.g., typed "Nike", found 1 result)
     if (filteredProducts.length === 1) {
       const s = filteredProducts[0];
       if (isVariableProduct(s)) { await handleOpenVariations(s); setScanNotice({ type: 'info', text: `Matched ${s.name}. Select variation.` }); }
       else { addToCart(s); playPosSound('add'); setScanNotice({ type: 'success', text: `Added ${s.name} to cart.` }); }
       setSearchTerm(''); searchInputRef.current?.focus(); return;
     }
-    setScanNotice({ type: 'error', text: 'No product found for scanned code.' });
+    
+    setScanNotice({ type: 'error', text: 'No single product found. Please select from the list.' });
   };
 
   useEffect(() => {
@@ -654,7 +735,7 @@ function PosTerminal() {
               <div style={{ color: T.inkFaint, flexShrink: 0 }}><IcoSearch s={17} /></div>
               <input
                 ref={searchInputRef}
-                type="search"
+                type="text"
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); if (scanNotice.text) setScanNotice({ type: '', text: '' }); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchSubmit(); } }}
