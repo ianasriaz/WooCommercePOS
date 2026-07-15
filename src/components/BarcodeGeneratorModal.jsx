@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Barcode from 'react-barcode';
 import { usePosStore } from '../store/usePosStore';
 import { generateStoreEAN13 } from '../utils/barcodeUtils';
@@ -70,6 +70,12 @@ export default function BarcodeGeneratorModal({ onClose }) {
   }, [products]);
 
   const [loadingCategoryVars, setLoadingCategoryVars] = useState(false);
+  const [loadingVarsStats, setLoadingVarsStats] = useState({ loaded: 0, total: 0 });
+  const loadedVariationsRef = useRef(loadedVariations);
+  
+  useEffect(() => {
+    loadedVariationsRef.current = loadedVariations;
+  }, [loadedVariations]);
   
   const visibleBaseProducts = useMemo(() => {
     let filtered = products;
@@ -98,10 +104,11 @@ export default function BarcodeGeneratorModal({ onClose }) {
   useEffect(() => {
     let isMounted = true;
     const loadVars = async () => {
-      const variableProducts = paginatedBaseProducts.filter(p => isVariableProduct(p) && !loadedVariations[p.id]);
+      const variableProducts = paginatedBaseProducts.filter(p => isVariableProduct(p) && !loadedVariationsRef.current[p.id]);
       if (variableProducts.length === 0) return;
       
       setLoadingCategoryVars(true);
+      setLoadingVarsStats({ loaded: 0, total: variableProducts.length });
       const CONCURRENCY = 4;
       let i = 0;
       
@@ -117,6 +124,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
             results.forEach(r => next[r.id] = r.vars);
             return next;
           });
+          setLoadingVarsStats(prev => ({ ...prev, loaded: prev.loaded + results.length }));
         }
         i += CONCURRENCY;
       }
@@ -124,7 +132,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
     };
     loadVars();
     return () => { isMounted = false; };
-  }, [paginatedBaseProducts, loadedVariations]);
+  }, [paginatedBaseProducts]);
 
   const flattenedItems = useMemo(() => {
     const items = [];
@@ -357,7 +365,11 @@ export default function BarcodeGeneratorModal({ onClose }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Checkbox checked={getCurrentViewItems().length > 0 && getCurrentSelection().size === getCurrentViewItems().filter(i => !i.isLoading).length} onChange={toggleSelectAll} />
                 <span style={{ fontSize: 13, color: T.ink, fontWeight: 600 }}>Select All ({getCurrentSelection().size} selected)</span>
-                {loadingCategoryVars && <span style={{ fontSize: 12, color: T.inkSoft, display: 'flex', alignItems: 'center', gap: 6, marginLeft: 10 }}><IcoLoader s={12}/> Loading sizes...</span>}
+                {loadingCategoryVars && (
+                  <span style={{ fontSize: 12, color: T.inkSoft, display: 'flex', alignItems: 'center', gap: 6, marginLeft: 10 }}>
+                    <IcoLoader s={12}/> Loading sizes ({loadingVarsStats.loaded}/{loadingVarsStats.total})...
+                  </span>
+                )}
               </div>
               
               <div style={{ display: 'flex', gap: 10 }}>
