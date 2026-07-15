@@ -26,7 +26,20 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -49,6 +62,12 @@ export default function Layout({ children }) {
       background: '#f8fafc', color: '#0f172a',
       fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
     }}>
+      {isOffline && (
+        <div style={{ background: '#ef4444', color: '#fff', textAlign: 'center', padding: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+          No Internet Connection. You are offline.
+        </div>
+      )}
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         /* Custom scrollbar for webkit */
@@ -65,14 +84,21 @@ export default function Layout({ children }) {
         padding: '0 24px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40,
       }}>
         {/* Left: Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 7, background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
-            <IcoScan size={16} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'linear-gradient(135deg, #16a34a 0%, #10b981 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff',
+            boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)'
+          }}>
+            <IcoScan size={18} />
           </div>
-          <div>
-            <span style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', display: 'block', letterSpacing: '-0.01em' }}>POS Dashboard</span>
-            <span style={{ fontFamily: '"Menlo", "Consolas", monospace', fontSize: 11, fontWeight: 500, color: '#64748b' }}>
-              {storeName || 'POS STORE'}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              POINT OF SALE
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
+              {storeName || 'Store Disconnected'}
             </span>
           </div>
         </div>
@@ -111,12 +137,7 @@ export default function Layout({ children }) {
           </button>
           <button
             type="button"
-            onClick={() => { 
-              if (window.confirm('Are you sure you want to sign out?')) {
-                logout(); 
-                navigate('/login'); 
-              }
-            }}
+            onClick={() => setIsSignOutModalOpen(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
               borderRadius: 20, border: '1px solid #e2e8f0', background: '#ffffff',
@@ -138,6 +159,57 @@ export default function Layout({ children }) {
       </main>
 
       {isProfileOpen && <ProfileModal onClose={() => setIsProfileOpen(false)} />}
+
+      {isSignOutModalOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{ background: '#ffffff', width: '100%', maxWidth: 400, borderRadius: 16, display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px -12px rgba(15,23,42,0.3)', border: '1px solid #fecaca', overflow: 'hidden' }}>
+            <div style={{ padding: '24px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IcoLogOut size={20} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>Sign Out</h3>
+                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0', lineHeight: 1.4 }}>
+                  Are you sure you want to sign out of the terminal?
+                </p>
+              </div>
+            </div>
+            <div style={{ padding: '20px 28px', background: '#f8fafc', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setIsSignOutModalOpen(false)}
+                style={{
+                  background: 'transparent', border: '1px solid #cbd5e1', borderRadius: 8,
+                  color: '#64748b', fontSize: 14, fontWeight: 600, padding: '10px 18px', cursor: 'pointer', transition: 'all 0.15s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#0f172a'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setIsSignOutModalOpen(false);
+                  logout(); 
+                  navigate('/login'); 
+                }}
+                style={{
+                  background: '#ef4444', border: 'none', borderRadius: 8,
+                  color: '#ffffff', fontSize: 14, fontWeight: 600, padding: '10px 18px', cursor: 'pointer',
+                  boxShadow: '0 2px 5px rgba(239, 68, 68, 0.2)', transition: 'background 0.15s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = '#ef4444'; }}
+              >
+                Yes, sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

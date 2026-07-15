@@ -21,6 +21,9 @@ const formatVariationLabel = (attributes = []) => {
 const initialState = {
   products: [],
   cart: [],
+  variationsCache: {},
+  lastSyncTimestamp: null,
+  _hasHydrated: false,
 };
 
 export const usePosStore = create(
@@ -28,7 +31,29 @@ export const usePosStore = create(
     (set, get) => ({
       ...initialState,
 
-      setProducts: (products) => set({ products }),
+      setProducts: (products) => set({ products, lastSyncTimestamp: new Date().toISOString() }),
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
+      
+      updateProducts: (newProducts) => set((state) => {
+        const existingMap = new Map(state.products.map(p => [p.id, p]));
+        
+        newProducts.forEach(np => {
+          if (np.status && np.status !== 'publish') {
+            existingMap.delete(np.id);
+          } else {
+            existingMap.set(np.id, np);
+          }
+        });
+        
+        return { 
+          products: Array.from(existingMap.values()),
+          lastSyncTimestamp: new Date().toISOString() 
+        };
+      }),
+      
+      setVariationsCache: (productId, variations) => set((state) => ({
+        variationsCache: { ...state.variationsCache, [productId]: variations }
+      })),
 
       addToCart: (product, variation = null) => {
         set((state) => {
@@ -112,7 +137,11 @@ export const usePosStore = create(
       partialize: (state) => ({
         products: state.products,
         cart: state.cart,
+        lastSyncTimestamp: state.lastSyncTimestamp,
       }),
+      onRehydrateStorage: () => (state) => {
+        state.setHasHydrated(true);
+      },
     },
   ),
 );

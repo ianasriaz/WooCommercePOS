@@ -21,42 +21,50 @@ wcClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-export const fetchProducts = async () => {
+export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
   const perPage = 100;
+
+  const baseParams = {
+    _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,status',
+    per_page: perPage,
+  };
+
+  if (lastSyncDate) {
+    baseParams.modified_after = lastSyncDate;
+    baseParams.status = 'any';
+  }
 
   // 1. Fetch the first page to determine total pages
   const firstResponse = await wcClient.get('/wc/v3/products', {
-    params: {
-      _fields:
-        'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created',
-      per_page: perPage,
-      page: 1,
-    },
+    params: { ...baseParams, page: 1 },
   });
 
   let allProducts = [...firstResponse.data];
+  if (onProgress) onProgress(allProducts);
+
   const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
 
-  // 2. Fetch all remaining pages concurrently
+  // 2. Fetch remaining pages using a rate-limited chunked queue (Max 3 concurrent)
   if (totalPages > 1) {
-    const promises = [];
+    const queue = [];
     for (let p = 2; p <= totalPages; p++) {
-      promises.push(
-        wcClient.get('/wc/v3/products', {
-          params: {
-            _fields:
-              'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created',
-            per_page: perPage,
-            page: p,
-          },
-        })
-      );
+      queue.push(p);
     }
+
+    const CONCURRENCY_LIMIT = 3;
     
-    const results = await Promise.all(promises);
-    results.forEach((res) => {
-      allProducts = [...allProducts, ...res.data];
-    });
+    while (queue.length > 0) {
+      const chunk = queue.splice(0, CONCURRENCY_LIMIT);
+      const chunkPromises = chunk.map((p) => 
+        wcClient.get('/wc/v3/products', { params: { ...baseParams, page: p } })
+      );
+      
+      const results = await Promise.all(chunkPromises);
+      results.forEach((res) => {
+        allProducts = [...allProducts, ...res.data];
+        if (onProgress) onProgress([...res.data]);
+      });
+    }
   }
 
   return allProducts;

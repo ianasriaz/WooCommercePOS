@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { checkStock, createPosOrder, fetchProducts, fetchVariations } from '../api/wc-client';
 import ReceiptModal from '../components/ReceiptModal';
@@ -24,12 +24,12 @@ const T = {
   mono: "'IBM Plex Mono', 'SF Mono', 'Roboto Mono', ui-monospace, monospace",
 };
 
-/* Dark cart panel — deliberate contrast zone, tuned to the same palette */
+/* Dark cart panel — exact black contrast zone */
 const D = {
-  bg: '#0a0c10',
-  panel: '#0f1216',
-  line: '#1e242c',
-  lineSoft: '#171b20',
+  bg: '#000000',
+  panel: '#0a0a0a',
+  line: '#1f2022',
+  lineSoft: '#121314',
   text: '#f8fafc',
   textSoft: '#8b93a1',
   textFaint: '#525a66',
@@ -108,6 +108,10 @@ const ShimmerStyle = () => (
       background: linear-gradient(90deg, #171b20 25%, #1c2128 37%, #171b20 63%);
       background-size: 600px 100%;
       animation: posShimmer 1.6s ease-in-out infinite;
+    }
+    @keyframes toastSlideDown {
+      from { transform: translate(-50%, -20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
     }
   `}</style>
 );
@@ -191,13 +195,17 @@ const ProductImage = ({ src, alt }) => {
 function PosTerminal() {
   const storeName = useAuthStore((s) => s.storeName);
   const products = usePosStore((s) => s.products);
+  const lastSyncTimestamp = usePosStore((s) => s.lastSyncTimestamp);
   const cart = usePosStore((s) => s.cart);
   const setProducts = usePosStore((s) => s.setProducts);
+  const updateProducts = usePosStore((s) => s.updateProducts);
   const addToCart = usePosStore((s) => s.addToCart);
   const removeFromCart = usePosStore((s) => s.removeFromCart);
   const updateQuantity = usePosStore((s) => s.updateQuantity);
   const clearCart = usePosStore((s) => s.clearCart);
   const cartTotal = usePosStore((s) => s.cartTotal());
+  const variationsCache = usePosStore((s) => s.variationsCache);
+  const setVariationsCache = usePosStore((s) => s.setVariationsCache);
 
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
   useEffect(() => {
@@ -233,6 +241,7 @@ function PosTerminal() {
   const [loadingVariations, setLoadingVariations] = useState(false);
   const [variationsError, setVariationsError] = useState('');
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
+  const [isRebuildModalOpen, setIsRebuildModalOpen] = useState(false);
   const [cashTendered, setCashTendered] = useState('');
   const [displayCount, setDisplayCount] = useState(40);
 
@@ -268,22 +277,39 @@ function PosTerminal() {
     } catch { /* optional */ }
   };
 
+  const _hasHydrated = usePosStore((s) => s._hasHydrated);
+
   useEffect(() => {
     let alive = true;
+    if (!_hasHydrated) return; // Wait for IndexedDB to load
+    
+    if (products.length > 0) {
+      setLoadingProducts(false); // Turn off skeleton loader now that products are loaded from memory
+      return; 
+    }
+
     (async () => {
-      if (products.length === 0) setLoadingProducts(true);
+      setLoadingProducts(true);
       setLoadError('');
       try {
-        const catalog = await fetchProducts();
+        const catalog = await fetchProducts(null, (batch) => {
+          if (alive) {
+            // Stream products into the store as they arrive so the UI populates instantly!
+            updateProducts(batch); 
+            // Turn off the skeleton loader as soon as the first batch arrives
+            setLoadingProducts(false);
+          }
+        });
         if (alive) setProducts(catalog);
       } catch {
         if (alive) setLoadError('Failed to load products. Check API credentials and try again.');
       } finally {
-        if (alive && products.length === 0) setLoadingProducts(false);
+        if (alive) setLoadingProducts(false);
       }
     })();
+    
     return () => { alive = false; };
-  }, [setProducts]);
+  }, [setProducts, products.length, _hasHydrated, updateProducts]);
 
   const getLocalStock = (item) => {
     if (item?.manage_stock === false && item?.stock_status === 'instock') return Number.MAX_SAFE_INTEGER;
@@ -292,12 +318,38 @@ function PosTerminal() {
   };
 
   const handleOpenVariations = async (product) => {
-    setSelectedProduct(product); setIsVariationsModalOpen(true);
-    setLoadingVariations(true); setVariationsError(''); setVariations([]);
-    try {
-      setVariations(await fetchVariations(product.id));
-    } catch { setVariationsError('Failed to load product options. Please try again.'); }
-    finally { setLoadingVariations(false); }
+    setSelectedProduct(product);
+    setIsVariationsModalOpen(true);
+    setVariationsError('');
+
+    const cached = variationsCache[product.id];
+
+    if (cached) {
+      setVariations(cached);
+      setLoadingVariations(false);
+      
+      // SWR: Silent background refresh
+      fetchVariations(product.id).then((freshData) => {
+        setVariationsCache(product.id, freshData);
+        // Update live modal data only if they are still looking at the same product
+        setSelectedProduct((currentSelected) => {
+          if (currentSelected?.id === product.id) setVariations(freshData);
+          return currentSelected;
+        });
+      }).catch(() => { /* silent fail on background refresh */ });
+    } else {
+      setVariations([]);
+      setLoadingVariations(true);
+      try {
+        const freshData = await fetchVariations(product.id);
+        setVariations(freshData);
+        setVariationsCache(product.id, freshData);
+      } catch { 
+        setVariationsError('Failed to load product options. Please try again.'); 
+      } finally { 
+        setLoadingVariations(false); 
+      }
+    }
   };
 
   const handleCloseVariations = () => {
@@ -357,11 +409,7 @@ function PosTerminal() {
       const stockResults = await Promise.all(
         cart.map(async (item) => ({ item, currentStock: await checkStock(item.id, item.variation_id ?? null) })),
       );
-      setStockByItem((c) => {
-        const n = { ...c };
-        stockResults.forEach(({ item, currentStock }) => { n[cartItemKey(item)] = currentStock; });
-        return n;
-      });
+
       for (const { item, currentStock } of stockResults) {
         if (currentStock <= 0) { setCheckoutError(`Out of stock: ${item.name}. Checkout halted.`); return; }
         if (currentStock < item.quantity) {
@@ -391,24 +439,36 @@ function PosTerminal() {
   const cashChange = paymentOption === 'cash' ? Math.max(0, safeCash - cartTotal) : 0;
   const isCashShort = paymentOption === 'cash' && cashTendered.trim() !== '' && safeCash < cartTotal;
 
-  const filteredProducts = products.filter((p) => {
-    if (!searchTerm.trim()) return true;
-    return extractProductSearchTokens(p).some((t) => t.includes(normalizeSearchText(searchTerm)));
-  });
+  const filteredProducts = useMemo(() => {
+    let result = products;
+    if (searchTerm.trim()) {
+      result = products.filter((p) => 
+        extractProductSearchTokens(p).some((t) => t.includes(normalizeSearchText(searchTerm)))
+      );
+    }
+    // Always sort by date_created descending so the order remains stable
+    // even when delta sync appends updated products to the end of the array.
+    return result.sort((a, b) => {
+      const dateA = a.date_created ? new Date(a.date_created).getTime() : 0;
+      const dateB = b.date_created ? new Date(b.date_created).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [products, searchTerm]);
 
   useEffect(() => {
     setDisplayCount(40);
   }, [searchTerm]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
+  const observer = useRef(null);
+  const lastElementRef = useCallback((node) => {
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
         setDisplayCount((prev) => prev + 40);
       }
-    }, { threshold: 0.1, rootMargin: '200px' });
-
-    if (observerTargetRef.current) observer.observe(observerTargetRef.current);
-    return () => observer.disconnect();
+    }, { threshold: 0.1, rootMargin: '400px' });
+    
+    if (node) observer.current.observe(node);
   }, []);
 
   const productCodeLookup = useMemo(() => {
@@ -469,7 +529,7 @@ function PosTerminal() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: T.canvas, color: T.ink, fontFamily: T.sans }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.canvas, color: T.ink, fontFamily: T.sans }}>
       <ShimmerStyle />
       <style>{`
         ::-webkit-scrollbar { width: 6px; }
@@ -487,14 +547,21 @@ function PosTerminal() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px', height: 60, gap: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 7, background: T.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
-            <IcoScan s={16} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'linear-gradient(135deg, #16a34a 0%, #10b981 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff',
+            boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)'
+          }}>
+            <IcoScan s={18} />
           </div>
-          <div>
-            <span style={{ fontSize: 14.5, fontWeight: 800, color: T.ink, display: 'block', letterSpacing: '-0.01em' }}>POS Terminal</span>
-            <span style={{ fontFamily: T.mono, fontSize: 11, fontWeight: 500, color: T.inkSoft }}>
-              {storeName || 'POS STORE'}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: T.ink, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              POS Terminal
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
+              {storeName || 'Store Disconnected'}
             </span>
           </div>
         </div>
@@ -512,31 +579,53 @@ function PosTerminal() {
           >
             {isFullscreen ? <IcoCollapse s={14} /> : <IcoExpand s={14} />}
           </button>
-          <button
-            onClick={async () => {
-              setLoadError('');
-              setScanNotice({ type: 'info', text: 'Syncing catalog...' });
-              try {
-                const catalog = await fetchProducts();
-                setProducts(catalog);
-                setScanNotice({ type: 'success', text: `Catalog synced (${catalog.length} items).` });
-                setTimeout(() => setScanNotice({ type: '', text: '' }), 3000);
-              } catch {
-                setScanNotice({ type: 'error', text: 'Failed to sync catalog.' });
-              }
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8,
-              color: T.inkSoft, padding: '0 14px', height: 36, fontSize: 12.5, fontWeight: 600,
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.inkFaint; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.line; }}
-          >
-            <IcoSearch s={13} />
-            Sync
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, padding: 4 }}>
+            <button
+              onClick={async () => {
+                if (!lastSyncTimestamp) {
+                  setScanNotice({ type: 'info', text: 'Please use Sync Inventory for the first load.' });
+                  return;
+                }
+                setLoadError('');
+                setScanNotice({ type: 'info', text: 'Syncing stock updates...' });
+                try {
+                  const fetchedProducts = await fetchProducts(lastSyncTimestamp);
+                  updateProducts(fetchedProducts);
+                  setScanNotice({ type: 'success', text: `Stock updated (${fetchedProducts.length} changes).` });
+                  setTimeout(() => setScanNotice({ type: '', text: '' }), 4000);
+                } catch (err) {
+                  console.error('Sync error:', err);
+                  setScanNotice({ type: 'error', text: 'Failed to sync stock.' });
+                }
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'transparent', border: 'none', borderRadius: 6,
+                color: T.inkSoft, padding: '0 10px', height: 28, fontSize: 12.5, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = T.lineSoft; e.currentTarget.style.color = T.ink; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.inkSoft; }}
+            >
+              <IcoSearch s={13} />
+              Sync Stock
+            </button>
+            <div style={{ width: 1, height: 16, background: T.line }} />
+            <button
+              onClick={() => setIsRebuildModalOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'transparent', border: 'none', borderRadius: 6,
+                color: T.inkSoft, padding: '0 10px', height: 28, fontSize: 12.5, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = T.lineSoft; e.currentTarget.style.color = T.ink; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.inkSoft; }}
+            >
+              <IcoBox s={13} />
+              Sync Inventory
+            </button>
+          </div>
 
           <Link to="/" style={{
             display: 'flex', alignItems: 'center', gap: 7,
@@ -554,14 +643,14 @@ function PosTerminal() {
       </header>
 
       {/* ── Main grid ──────────────────────────────── */}
-      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, height: 'calc(100vh - 60px)' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, flex: 1, width: '100%', boxSizing: 'border-box', minHeight: 0 }}>
 
         {/* ══ LEFT: Product catalog ══════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0 }}>
 
-          {/* Search bar */}
-          <div style={{ ...S.panel, flexShrink: 0, padding: 2 }}>
-            <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Search bar & Integrated Notice */}
+          <div style={{ ...S.panel, flexShrink: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ color: T.inkFaint, flexShrink: 0 }}><IcoSearch s={17} /></div>
               <input
                 ref={searchInputRef}
@@ -584,11 +673,24 @@ function PosTerminal() {
                 {filteredProducts.length}/{products.length}
               </span>
             </div>
-            {scanNotice.text && (
-              <div style={{ padding: '0 14px 10px' }}>
-                <NoticeBar type={scanNotice.type} text={scanNotice.text} />
+            
+            {/* Integrated Notification Ribbon */}
+            <div style={{
+              height: scanNotice.text ? 'auto' : 0, opacity: scanNotice.text ? 1 : 0,
+              overflow: 'hidden', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              background: scanNotice.type === 'success' ? '#ecfdf5' : scanNotice.type === 'error' ? '#fef2f2' : '#f8fafc',
+              borderTop: scanNotice.text ? `1px solid ${scanNotice.type === 'success' ? '#d1fae5' : scanNotice.type === 'error' ? '#fee2e2' : T.line}` : 'none'
+            }}>
+              <div style={{
+                padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 12.5, fontWeight: 600,
+                color: scanNotice.type === 'success' ? '#047857' : scanNotice.type === 'error' ? '#dc2626' : '#64748b'
+              }}>
+                {scanNotice.type === 'success' && <IcoCheck s={14} />}
+                {scanNotice.type === 'error' && <IcoX s={14} />}
+                {scanNotice.text}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Load states */}
@@ -688,7 +790,7 @@ function PosTerminal() {
                     );
                   })}
                   {displayCount < filteredProducts.length && (
-                    <div ref={observerTargetRef} style={{ height: 20, width: '100%', gridColumn: '1 / -1' }} />
+                    <div ref={lastElementRef} style={{ height: 20, width: '100%', gridColumn: '1 / -1' }} />
                   )}
                 </div>
               )}
@@ -756,12 +858,25 @@ function PosTerminal() {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <p style={{ fontSize: 13.5, fontWeight: 600, color: D.text, margin: 0, lineHeight: 1.4 }}>
-                            {item.name}
-                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <p style={{ fontSize: 13.5, fontWeight: 600, color: D.text, margin: 0, lineHeight: 1.4 }}>
+                              {item.name}
+                            </p>
+                            <span style={{ 
+                              fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, 
+                              background: 'rgba(22, 163, 74, 0.15)', color: '#4ade80' 
+                            }}>
+                              {avail === undefined ? 'Checking…' : hasLimit ? `${avail} in stock` : 'In-Stock'}
+                            </span>
+                          </div>
                           {item.variation_id && item.attributes && (
                             <p style={{ fontSize: 12, color: D.textSoft, margin: '3px 0 0', fontWeight: 500 }}>
                               {variationLabel(item.attributes)}
+                            </p>
+                          )}
+                          {item.sku && (
+                            <p style={{ fontFamily: T.mono, fontSize: 10.5, color: D.textFaint, margin: '3px 0 0', fontWeight: 500 }}>
+                              {item.sku}
                             </p>
                           )}
                         </div>
@@ -805,15 +920,8 @@ function PosTerminal() {
                           <div style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: D.text, fontVariantNumeric: 'tabular-nums' }}>
                             {formatPkr(lineTotal)}
                           </div>
-                          <div style={{ fontSize: 11, color: D.textFaint, marginTop: 2, fontWeight: 500 }}>
-                            {formatPkr(item.price)} each
-                          </div>
                         </div>
                       </div>
-
-                      <p style={{ fontSize: 10.5, color: D.textFaint, marginTop: 10, fontWeight: 500 }}>
-                        {avail === undefined ? 'Checking stock…' : avail === Number.MAX_SAFE_INTEGER ? 'Unlimited stock' : `Max available: ${avail}`}
-                      </p>
                     </div>
                   );
                 })}
@@ -824,13 +932,13 @@ function PosTerminal() {
           {/* Checkout controls */}
           <div style={{ borderTop: `1px solid ${D.line}`, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            <div style={{ display: 'flex', background: D.lineSoft, borderRadius: 9, padding: 3 }}>
+            <div style={{ display: 'flex', background: D.lineSoft, borderRadius: 10, padding: 5, gap: 8 }}>
               <button type="button" onClick={() => setPaymentOption('cash')}
-                style={{ flex: 1, background: paymentOption === 'cash' ? T.accent : 'transparent', color: paymentOption === 'cash' ? '#ffffff' : D.textSoft, border: 'none', borderRadius: 7, padding: '10px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13 }}>
+                style={{ flex: 1, background: paymentOption === 'cash' ? T.accent : 'transparent', color: paymentOption === 'cash' ? '#ffffff' : D.textSoft, border: paymentOption === 'cash' ? '1px solid transparent' : '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '9px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13 }}>
                 <IcoCash s={14} /> Cash
               </button>
               <button type="button" onClick={() => setPaymentOption('bank_transfer')}
-                style={{ flex: 1, background: paymentOption === 'bank_transfer' ? T.accent : 'transparent', color: paymentOption === 'bank_transfer' ? '#ffffff' : D.textSoft, border: 'none', borderRadius: 7, padding: '10px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13 }}>
+                style={{ flex: 1, background: paymentOption === 'bank_transfer' ? T.accent : 'transparent', color: paymentOption === 'bank_transfer' ? '#ffffff' : D.textSoft, border: paymentOption === 'bank_transfer' ? '1px solid transparent' : '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '9px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13 }}>
                 <IcoBank s={14} /> Bank transfer
               </button>
             </div>
@@ -839,7 +947,7 @@ function PosTerminal() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
               <div>
-                <div style={{ fontSize: 10.5, color: D.textFaint, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Total due</div>
+                <div style={{ fontSize: 10.5, color: D.textFaint, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Grand Total</div>
                 <div style={{ fontFamily: T.mono, fontSize: 30, fontWeight: 700, color: D.text, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                   {formatPkr(cartTotal)}
                 </div>
@@ -852,9 +960,10 @@ function PosTerminal() {
                 disabled={cart.length === 0}
                 style={{
                   background: cart.length === 0 ? D.lineSoft : T.accent,
-                  border: 'none', borderRadius: 10, color: cart.length === 0 ? D.textFaint : '#ffffff',
-                  fontSize: 15, fontWeight: 700, cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.15s ease', padding: '15px 26px', display: 'flex', alignItems: 'center', gap: 8,
+                  border: cart.length === 0 ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent', 
+                  borderRadius: 10, color: cart.length === 0 ? D.textFaint : '#ffffff',
+                  fontSize: 16, fontWeight: 700, cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.15s ease', padding: '15px 26px', width: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}
                 onMouseEnter={(e) => { if (cart.length > 0) e.currentTarget.style.background = '#15803d'; }}
                 onMouseLeave={(e) => { if (cart.length > 0) e.currentTarget.style.background = T.accent; }}>
@@ -884,7 +993,7 @@ function PosTerminal() {
             </div>
             <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
               <label style={{ display: 'block' }}>
-                <span style={S.label}>Customer name (optional)</span>
+                <span style={{ ...S.label, color: T.ink }}>Customer name <span style={{ color: T.danger }}>*</span></span>
                 <input type="text"
                   value={customerDetails.name} onChange={(e) => setCustomerDetails(c => ({ ...c, name: e.target.value }))}
                   placeholder="Enter name" style={S.input}
@@ -910,19 +1019,94 @@ function PosTerminal() {
               {checkoutError && <NoticeBar type="error" text={checkoutError} />}
               {isCheckingOut && checkoutStage && <NoticeBar type="info" text={checkoutStage} />}
 
-              <button type="button" onClick={handleCheckout} disabled={isCheckingOut || !customerDetails.phone.trim()}
+              <button type="button" onClick={handleCheckout} disabled={isCheckingOut || !customerDetails.name.trim() || !customerDetails.phone.trim()}
                 style={{
-                  background: (isCheckingOut || !customerDetails.phone.trim()) ? T.lineSoft : T.accent,
-                  color: (isCheckingOut || !customerDetails.phone.trim()) ? T.inkFaint : '#ffffff',
+                  background: (isCheckingOut || !customerDetails.name.trim() || !customerDetails.phone.trim()) ? T.lineSoft : T.accent,
+                  color: (isCheckingOut || !customerDetails.name.trim() || !customerDetails.phone.trim()) ? T.inkFaint : '#ffffff',
                   border: 'none',
                   padding: '14px', borderRadius: 9, fontSize: 14.5, fontWeight: 700,
-                  cursor: (isCheckingOut || !customerDetails.phone.trim()) ? 'not-allowed' : 'pointer',
+                  cursor: (isCheckingOut || !customerDetails.name.trim() || !customerDetails.phone.trim()) ? 'not-allowed' : 'pointer',
                   transition: 'background 0.15s',
                 }}
-                onMouseEnter={(e) => { if (!isCheckingOut && customerDetails.phone.trim()) e.currentTarget.style.background = '#15803d'; }}
-                onMouseLeave={(e) => { if (!isCheckingOut && customerDetails.phone.trim()) e.currentTarget.style.background = T.accent; }}>
-                {isCheckingOut ? checkoutStage || 'Processing…' : 'Confirm order & print'}
+                onMouseEnter={(e) => { if (!isCheckingOut && customerDetails.name.trim() && customerDetails.phone.trim()) e.currentTarget.style.background = '#15803d'; }}
+                onMouseLeave={(e) => { if (!isCheckingOut && customerDetails.name.trim() && customerDetails.phone.trim()) e.currentTarget.style.background = T.accent; }}>
+                {isCheckingOut ? checkoutStage || 'Processing…' : 'Confirm & Print Invoice'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Rebuild Catalog Modal ──────────────── */}
+      {isRebuildModalOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{ ...S.panel, width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px -12px rgba(15,23,42,0.3)', border: `1px solid ${T.line}` }}>
+            <div style={{ padding: '24px 28px', borderBottom: `1px solid ${T.line}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f1f5f9', color: T.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IcoBox s={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: T.ink, margin: 0, letterSpacing: '-0.01em' }}>Full Inventory Sync</h3>
+                  <p style={{ fontSize: 13, color: T.inkSoft, margin: '4px 0 0', lineHeight: 1.4 }}>
+                    Sync a fresh copy of all products.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ padding: '24px 28px', background: T.canvas, borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
+              <div style={{ display: 'flex', gap: 10, background: '#f8fafc', border: `1px solid ${T.line}`, padding: 14, borderRadius: 8, marginBottom: 24 }}>
+                <div style={{ color: T.inkSoft, marginTop: 1, flexShrink: 0 }}><IcoX s={14} /></div>
+                <p style={{ fontSize: 13, color: T.ink, margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+                  Use this only if you have permanently deleted products. For price or stock updates, use <strong>Sync Stock</strong>.
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setIsRebuildModalOpen(false)}
+                  style={{
+                    background: 'transparent', border: `1px solid ${T.line}`, borderRadius: 8,
+                    color: T.inkSoft, fontSize: 14, fontWeight: 600, padding: '10px 18px', cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = T.ink; e.currentTarget.style.borderColor = T.inkFaint; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = T.inkSoft; e.currentTarget.style.borderColor = T.line; }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsRebuildModalOpen(false);
+                    setLoadError('');
+                    setScanNotice({ type: 'info', text: 'Rebuilding full inventory...' });
+                    try {
+                      const catalog = await fetchProducts(null, (batch) => {
+                        updateProducts(batch); 
+                      });
+                      setProducts(catalog);
+                      setScanNotice({ type: 'success', text: `Inventory rebuilt (${catalog.length} items).` });
+                      setTimeout(() => setScanNotice({ type: '', text: '' }), 4000);
+                    } catch (err) {
+                      console.error('Sync error:', err);
+                      setScanNotice({ type: 'error', text: 'Failed to rebuild inventory.' });
+                    }
+                  }}
+                  style={{
+                    background: T.ink, border: 'none', borderRadius: 8,
+                    color: '#ffffff', fontSize: 14, fontWeight: 600, padding: '10px 18px', cursor: 'pointer',
+                    boxShadow: '0 2px 5px rgba(15, 23, 42, 0.2)'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#1e293b'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = T.ink; }}
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -7,6 +7,8 @@ export const useAuthStore = create(
   persist(
     (set) => ({
       isLoggedIn: false,
+      _hasHydrated: false,
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
       licenseKey: null,
       storeUrl: null,
       wcConsumerKey: null,
@@ -75,6 +77,9 @@ export const useAuthStore = create(
     {
       name: 'pos-auth-store',
       storage: createJSONStorage(() => idbStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

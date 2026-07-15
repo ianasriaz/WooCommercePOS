@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/useAuthStore';
+
 const currencyFormatter = new Intl.NumberFormat('en-PK', {
   style: 'currency',
   currency: 'PKR',
@@ -37,47 +38,57 @@ function ReceiptModal({ orderData, onClose }) {
   };
 
   return createPortal(
-    <div className="receipt-print-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 print:items-start print:justify-start print:bg-white print:p-0">
-      <div className="receipt-print-sheet w-full max-w-sm rounded-lg bg-white p-4 font-mono text-black shadow-2xl print:mx-auto print:w-[72mm] print:max-w-[72mm] print:rounded-none print:p-0 print:text-[10px] print:shadow-none">
-        <div className="border-b border-dashed border-black pb-2 text-center">
-          <p className="text-base font-bold uppercase tracking-[0.2em]">{storeName || 'POS STORE'}</p>
-          {storeAddress && <p className="mt-1 text-[10px] uppercase leading-tight">{storeAddress}</p>}
-          {storePhone && <p className="mt-0.5 text-[10px] uppercase font-bold">TEL: {storePhone}</p>}
-          <p className="mt-2 text-[11px] border-t border-black/20 pt-1 inline-block uppercase">POS SALES RECEIPT</p>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(15,23,42,0.7)', padding: '16px'
+    }} className="receipt-print-overlay">
+      <div style={{
+        width: '100%', maxWidth: '384px', background: '#fff',
+        borderRadius: '8px', padding: '16px', color: '#000',
+        fontFamily: 'monospace', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+      }} className="receipt-print-sheet">
+        <div style={{ borderBottom: '1px dashed #000', paddingBottom: '8px', textAlign: 'center' }}>
+          <p style={{ fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>
+            {storeName || 'POS STORE'}
+          </p>
+          {storeAddress && <p style={{ whiteSpace: 'pre-wrap', marginTop: '4px', fontSize: '10px', textTransform: 'uppercase', lineHeight: 1.2, margin: '4px 0 0' }}>{storeAddress}</p>}
+          {storePhone && <p style={{ marginTop: '2px', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', margin: '2px 0 0' }}>TEL: {storePhone}</p>}
+          <p style={{ marginTop: '8px', fontSize: '11px', borderTop: '1px solid rgba(0,0,0,0.2)', paddingTop: '4px', display: 'inline-block', textTransform: 'uppercase', margin: '8px 0 0' }}>
+            POS SALES RECEIPT
+          </p>
         </div>
 
-        <div className="mt-2 space-y-1 text-xs leading-4">
-          <p className="flex items-center justify-between gap-3">
+        <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}>
             <span>Order #</span>
-            <span className="font-semibold">{orderData?.id ?? 'N/A'}</span>
+            <span style={{ fontWeight: 600 }}>{orderData?.id ?? 'N/A'}</span>
           </p>
-          <p className="flex items-center justify-between gap-3">
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}>
             <span>Date</span>
-            <span className="font-semibold">{formatDateTime(orderData?.date_created || orderData?.date)}</span>
+            <span style={{ fontWeight: 600 }}>{formatDateTime(orderData?.date_created || orderData?.date)}</span>
           </p>
-          <p className="flex items-center justify-between gap-3">
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}>
             <span>Payment</span>
-            <span className="font-semibold">{paymentTitle}</span>
+            <span style={{ fontWeight: 600 }}>{paymentTitle}</span>
           </p>
           {customerName && (
-            <>
-              <p className="flex items-center justify-between gap-3">
-                <span>Customer</span>
-                <span className="font-semibold">{customerName}</span>
-              </p>
-            </>
+            <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}>
+              <span>Customer</span>
+              <span style={{ fontWeight: 600 }}>{customerName}</span>
+            </p>
           )}
         </div>
 
-        <div className="mt-3 border-y border-dashed border-black py-2">
-          <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wide">
+        <div style={{ marginTop: '12px', borderTop: '1px dashed #000', borderBottom: '1px dashed #000', paddingTop: '8px', paddingBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             <span>Item</span>
             <span>Amount</span>
           </div>
 
-          <div className="space-y-1.5 text-xs leading-4">
+          <div style={{ fontSize: '12px', lineHeight: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {lineItems.length === 0 && (
-              <p className="text-center text-xs text-black/60">No items found.</p>
+              <p style={{ textAlign: 'center', fontSize: '12px', color: 'rgba(0,0,0,0.6)', margin: 0 }}>No items found.</p>
             )}
 
             {lineItems.map((item, index) => {
@@ -87,44 +98,67 @@ function ReceiptModal({ orderData, onClose }) {
               const itemName = item.name || item.product_name || `Item ${index + 1}`;
 
               return (
-                <div key={`${item.id ?? index}-${index}`} className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{itemName}</p>
-                    <p className="text-[10px] text-black/70">
+                <div key={`${item.id ?? index}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</p>
+                    <p style={{ fontSize: '10px', color: 'rgba(0,0,0,0.7)', margin: 0 }}>
                       {quantity} x {formatPkr(itemPrice)}
                     </p>
                   </div>
-                  <p className="whitespace-nowrap font-semibold">{formatPkr(lineTotal)}</p>
+                  <p style={{ fontWeight: 600, margin: 0, whiteSpace: 'nowrap' }}>{formatPkr(lineTotal)}</p>
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between border-b border-dashed border-black pb-2 text-sm font-bold">
+        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #000', paddingBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
           <span>GRAND TOTAL</span>
           <span>{formatPkr(totalValue)}</span>
         </div>
 
-        <p className="mt-2 text-center text-[10px] text-black/70">Thank you for shopping with us</p>
+        <p style={{ marginTop: '8px', textAlign: 'center', fontSize: '10px', color: 'rgba(0,0,0,0.7)', margin: '8px 0 0' }}>Thank you for shopping with us</p>
 
-        <div className="mt-3 space-y-2">
+        <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }} className="receipt-controls">
           <button
             type="button"
             onClick={handlePrint}
-            className="w-full rounded-lg bg-black px-4 py-3 text-sm font-bold text-white transition hover:bg-black/80 print:hidden"
+            style={{ width: '100%', borderRadius: '8px', background: '#000', padding: '12px 16px', fontSize: '14px', fontWeight: 'bold', color: '#fff', border: 'none', cursor: 'pointer' }}
           >
             Print Receipt
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-lg border border-black px-4 py-3 text-sm font-bold text-black transition hover:bg-black hover:text-white print:hidden"
+            style={{ width: '100%', borderRadius: '8px', border: '1px solid #000', background: 'transparent', padding: '12px 16px', fontSize: '14px', fontWeight: 'bold', color: '#000', cursor: 'pointer' }}
           >
             New Sale
           </button>
         </div>
       </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          .receipt-print-overlay {
+            position: static !important;
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+            background: #fff !important;
+            padding: 0 !important;
+          }
+          .receipt-print-sheet {
+            margin: 0 auto !important;
+            width: 72mm !important;
+            max-width: 72mm !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            font-size: 10px !important;
+            box-shadow: none !important;
+          }
+          .receipt-controls {
+            display: none !important;
+          }
+        }
+      `}} />
     </div>,
     document.body,
   );

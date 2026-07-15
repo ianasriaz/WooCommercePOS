@@ -181,6 +181,8 @@ const getOrderChannel = (order) => {
 function PosDashboard() {
   const products = usePosStore((s) => s.products);
   const setProducts = usePosStore((s) => s.setProducts);
+  const updateProducts = usePosStore((s) => s.updateProducts);
+  const lastSyncTimestamp = usePosStore((s) => s.lastSyncTimestamp);
 
   const [loading, setLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
@@ -192,12 +194,27 @@ function PosDashboard() {
     else setLoading(true);
     setDashboardError('');
     try {
-      const [catalog, sales] = await Promise.all([
-        (products.length === 0 || manual) ? fetchProducts() : Promise.resolve(products),
-        fetchTodaysSales()
-      ]);
-      if (manual || products.length === 0) setProducts(catalog);
-      setTodayOrders(sales);
+      if (products.length === 0) {
+        // Initial Full Sync
+        const [catalog, sales] = await Promise.all([
+          fetchProducts(),
+          fetchTodaysSales()
+        ]);
+        setProducts(catalog);
+        setTodayOrders(sales);
+      } else if (manual) {
+        // Delta Sync + Sales
+        const [deltaCatalog, sales] = await Promise.all([
+          fetchProducts(lastSyncTimestamp),
+          fetchTodaysSales()
+        ]);
+        updateProducts(deltaCatalog);
+        setTodayOrders(sales);
+      } else {
+        // Just load sales
+        const sales = await fetchTodaysSales();
+        setTodayOrders(sales);
+      }
     } catch {
       setDashboardError('Failed to load dashboard data. Please check your connection.');
     } finally {
@@ -497,7 +514,7 @@ function PosDashboard() {
 
             {/* Recent orders */}
             <Panel>
-              <PanelHead title="Recent orders" badge={!loading && todayOrders.length > 0 ? `${todayOrders.length} today` : null} />
+              <PanelHead title="Recent In-Store Sale" badge={!loading && todayOrders.length > 0 ? `${todayOrders.length} today` : null} />
 
               {loading ? (
                 <div style={{ padding: '4px 24px' }}>
