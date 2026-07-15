@@ -777,9 +777,10 @@ function PosTerminal() {
               <div style={{ height: 24, width: 1, background: T.line, flexShrink: 0, margin: '0 4px' }} />
               
               {isSearchFocused ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', padding: '6px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', animation: 'posPulse 2s infinite' }} />
-                  Listening for Scanner
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: '#eff6ff', color: '#2563eb', borderRadius: 6 }}>
+                  <div style={{ animation: 'posPulse 2s infinite', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IcoScan s={16} />
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.inkFaint, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
