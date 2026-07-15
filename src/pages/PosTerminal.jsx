@@ -115,9 +115,9 @@ const ShimmerStyle = () => (
       to { transform: translate(-50%, 0); opacity: 1; }
     }
     @keyframes posPulse {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
     }
   `}</style>
 );
@@ -746,13 +746,13 @@ function PosTerminal() {
           {/* Search bar & Integrated Notice */}
           <div style={{
             ...S.panel, flexShrink: 0, padding: 0, display: 'flex', flexDirection: 'column',
-            border: isSearchFocused ? `2px solid ${T.accent}` : `1px solid ${T.line}`,
-            boxShadow: isSearchFocused ? `0 0 0 4px ${T.accent}20` : S.panel.boxShadow,
+            border: isSearchFocused ? `2px solid ${T.ink}` : `1px solid ${T.line}`,
+            boxShadow: S.panel.boxShadow,
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             transform: isSearchFocused ? 'translateY(-1px)' : 'none',
           }}>
             <div style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ color: isSearchFocused ? T.accent : T.inkFaint, flexShrink: 0, transition: 'color 0.2s' }}>
+              <div style={{ color: isSearchFocused ? T.ink : T.inkFaint, flexShrink: 0, transition: 'color 0.2s' }}>
                 <IcoSearch s={20} />
               </div>
               <input
@@ -777,7 +777,7 @@ function PosTerminal() {
               <div style={{ height: 24, width: 1, background: T.line, flexShrink: 0, margin: '0 4px' }} />
               
               {isSearchFocused ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: '#eff6ff', color: '#2563eb', borderRadius: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: T.lineSoft, color: T.ink, borderRadius: 6 }}>
                   <div style={{ animation: 'posPulse 2s infinite', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <IcoScan s={16} />
                   </div>
