@@ -243,6 +243,7 @@ function PosTerminal() {
   const [cartWarning, setCartWarning] = useState('');
   const [scanNotice, setScanNotice] = useState({ type: '', text: '' });
   const [customerDetails, setCustomerDetails] = useState({ name: '', phone: '', email: '' });
+  const [discountAmount, setDiscountAmount] = useState('');
   const [isVariationsModalOpen, setIsVariationsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [variations, setVariations] = useState([]);
@@ -481,6 +482,13 @@ function PosTerminal() {
     setCartWarning('');
   };
 
+  const handleClearCart = () => {
+    clearCart();
+    setDiscountAmount('');
+    setQuantityDrafts({});
+    setCartWarning('');
+  };
+
   const commitQuantityDraft = async (item) => {
     const raw = quantityDrafts[cartItemKey(item)] ?? String(item.quantity);
     const parsed = Number.parseInt(raw, 10);
@@ -509,7 +517,7 @@ function PosTerminal() {
         }
       }
       setCheckoutStage('Creating order…');
-      const orderData = await createPosOrder(cart, { name, phone, email: '' }, paymentOption);
+      const orderData = await createPosOrder(cart, { name, phone, email: '' }, paymentOption, discountAmount);
       setCompletedOrder(orderData);
       setIsCustomerOpen(false);
       playPosSound('checkout');
@@ -521,6 +529,7 @@ function PosTerminal() {
   const handleReceiptClose = () => {
     clearCart(); setCompletedOrder(null); setCheckoutError(''); setCashTendered('');
     setCustomerDetails({ name: '', phone: '', email: '' });
+    setDiscountAmount('');
     searchInputRef.current?.focus();
   };
 
@@ -530,6 +539,10 @@ function PosTerminal() {
   const cashRemaining = paymentOption === 'cash' ? Math.max(0, cartTotal - safeCash) : 0;
   const cashChange = paymentOption === 'cash' ? Math.max(0, safeCash - cartTotal) : 0;
   const isCashShort = paymentOption === 'cash' && cashTendered.trim() !== '' && safeCash < cartTotal;
+
+  const parsedDiscount = Number.parseFloat(discountAmount);
+  const finalDiscount = Number.isFinite(parsedDiscount) && parsedDiscount > 0 ? parsedDiscount : 0;
+  const finalTotal = Math.max(0, cartTotal - finalDiscount);
 
   const filteredProducts = useMemo(() => {
     let result = products;
@@ -594,15 +607,15 @@ function PosTerminal() {
       setSearchTerm(''); searchInputRef.current?.focus(); return;
     }
 
-    // 3. Last Resort: Not in cache, but looks like a full 8+ digit barcode scan (e.g. un-synced product).
-    if (/^\d{8,13}$/.test(q)) {
+    // 3. Last Resort: Not in cache, try hitting the server API to see if it's an un-synced product or variation SKU.
+    if (!q.includes(' ') && q.length >= 3) {
       await handleBarcodeScan(q);
       setSearchTerm('');
       searchInputRef.current?.focus();
       return;
     }
     
-    setScanNotice({ type: 'error', text: 'No single product found. Please select from the list.' });
+    setScanNotice({ type: 'error', text: 'No matching product found in database.' });
   };
 
   useEffect(() => {
@@ -622,7 +635,7 @@ function PosTerminal() {
     input: {
       background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8,
       color: T.ink, padding: '10px 14px', fontSize: 14, outline: 'none', width: '100%',
-      fontFamily: T.sans, transition: 'border-color 0.15s',
+      fontFamily: T.sans, transition: 'border-color 0.15s', boxSizing: 'border-box'
     },
     label: { fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.inkSoft, display: 'block', marginBottom: 6 },
     sectionHead: {
@@ -929,7 +942,7 @@ function PosTerminal() {
                 </span>
               )}
               {cart.length > 0 && (
-                <button type="button" onClick={clearCart}
+                <button type="button" onClick={handleClearCart}
                   style={{ background: 'transparent', border: 'none', color: D.textFaint, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: 0 }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = D.text; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = D.textFaint; }}
@@ -1063,11 +1076,21 @@ function PosTerminal() {
 
             <div style={{ height: 1, background: D.line }} />
 
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+               <div style={{ color: D.textSoft, fontSize: 13, fontWeight: 600 }}>Discount</div>
+               <div style={{ display: 'flex', alignItems: 'center', background: D.lineSoft, borderRadius: 6, padding: '6px 10px', width: 120 }}>
+                 <span style={{ color: D.textFaint, fontSize: 12, marginRight: 6, fontWeight: 600 }}>Rs</span>
+                 <input type="number" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} placeholder="0" min="0" step="any" style={{ background: 'transparent', border: 'none', color: D.text, width: '100%', outline: 'none', textAlign: 'right', fontSize: 14, fontWeight: 700, fontFamily: T.mono, padding: 0 }} />
+               </div>
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 10.5, color: D.textFaint, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Grand Total</div>
-                <div style={{ fontFamily: T.mono, fontSize: 30, fontWeight: 700, color: D.text, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {formatPkr(cartTotal)}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <div style={{ fontFamily: T.mono, fontSize: 30, fontWeight: 700, color: D.text, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {formatPkr(finalTotal)}
+                  </div>
                 </div>
               </div>
 
@@ -1127,10 +1150,21 @@ function PosTerminal() {
                   onBlur={(e) => e.target.style.borderColor = T.line} />
               </label>
 
-              <div style={{ background: T.canvas, borderRadius: 8, padding: '14px 18px', border: `1px solid ${T.line}` }}>
+              <div style={{ background: T.canvas, borderRadius: 8, padding: '14px 18px', border: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: T.inkSoft, fontWeight: 600, fontSize: 13.5 }}>Total bill</span>
-                  <span style={{ fontFamily: T.mono, color: T.accent, fontSize: 21, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatPkr(cartTotal)}</span>
+                  <span style={{ color: T.inkSoft, fontWeight: 600, fontSize: 13.5 }}>Grand total</span>
+                  <span style={{ fontFamily: T.mono, color: T.ink, fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatPkr(cartTotal)}</span>
+                </div>
+                {finalDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: T.inkSoft, fontWeight: 600, fontSize: 13.5 }}>Discount</span>
+                    <span style={{ fontFamily: T.mono, color: '#dc2626', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>-{formatPkr(finalDiscount)}</span>
+                  </div>
+                )}
+                <div style={{ height: 1, background: T.line, margin: '4px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: T.ink, fontWeight: 700, fontSize: 14 }}>Paid</span>
+                  <span style={{ fontFamily: T.mono, color: T.accent, fontSize: 21, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatPkr(finalTotal)}</span>
                 </div>
               </div>
 
@@ -1289,9 +1323,14 @@ function PosTerminal() {
                     onMouseLeave={(e) => { if (!oos) e.currentTarget.style.borderColor = T.line; }}>
                     <div>
                       <p style={{ fontSize: 14.5, fontWeight: 700, color: T.ink, margin: 0 }}>{variationLabel(v.attributes)}</p>
-                      <p style={{ fontSize: 12.5, color: oos ? T.danger : T.inkSoft, margin: '4px 0 0', fontWeight: 600 }}>
-                        {stockText}
-                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0 0' }}>
+                        <span style={{ fontSize: 12.5, color: oos ? T.danger : T.inkSoft, fontWeight: 600 }}>
+                          {stockText}
+                        </span>
+                        <span style={{ fontFamily: T.mono, fontSize: 11, fontWeight: 600, background: T.lineSoft, padding: '2px 6px', borderRadius: 4, color: T.inkSoft }}>
+                          SKU: {v.barcode || v.sku || 'None'}
+                        </span>
+                      </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 700, color: T.ink, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{formatPkr(v.price)}</p>

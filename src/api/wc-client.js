@@ -44,26 +44,16 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
 
   const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
 
-  // 2. Fetch remaining pages using a rate-limited chunked queue (Max 3 concurrent)
+  // 2. Fetch remaining pages sequentially to prevent PHP-FPM OOM crashes
   if (totalPages > 1) {
-    const queue = [];
     for (let p = 2; p <= totalPages; p++) {
-      queue.push(p);
-    }
-
-    const CONCURRENCY_LIMIT = 3;
-    
-    while (queue.length > 0) {
-      const chunk = queue.splice(0, CONCURRENCY_LIMIT);
-      const chunkPromises = chunk.map((p) => 
-        wcClient.get('/wc/v3/products', { params: { ...baseParams, page: p } })
-      );
-      
-      const results = await Promise.all(chunkPromises);
-      results.forEach((res) => {
+      try {
+        const res = await wcClient.get('/wc/v3/products', { params: { ...baseParams, page: p } });
         allProducts = [...allProducts, ...res.data];
         if (onProgress) onProgress([...res.data]);
-      });
+      } catch (error) {
+        console.error(`Failed to fetch products page ${p}`, error);
+      }
     }
   }
 
@@ -73,7 +63,7 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
 export const fetchVariations = async (productId) => {
   const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
     params: {
-      _fields: 'id,attributes,price,stock_quantity,stock_status,manage_stock,image',
+      _fields: 'id,attributes,price,stock_quantity,stock_status,manage_stock,image,sku',
       per_page: 100,
     },
   });
@@ -150,7 +140,7 @@ const PAYMENT_METHOD_MAP = {
   },
 };
 
-export const createPosOrder = async (cartItems, customerDetails = {}, paymentOption = 'cash') => {
+export const createPosOrder = async (cartItems, customerDetails = {}, paymentOption = 'cash', discountAmount = 0) => {
   const line_items = cartItems.map((item) => ({
     product_id: item.id,
     variation_id: item.variation_id || undefined,
@@ -174,6 +164,16 @@ export const createPosOrder = async (cartItems, customerDetails = {}, paymentOpt
     billing,
     line_items,
   };
+
+  const parsedDiscount = Number.parseFloat(discountAmount);
+  if (Number.isFinite(parsedDiscount) && parsedDiscount > 0) {
+    payload.fee_lines = [
+      {
+        name: 'POS Discount',
+        total: `-${parsedDiscount}`,
+      },
+    ];
+  }
 
   try {
     const response = await wcClient.post('/wc/v3/orders', payload);
@@ -226,28 +226,21 @@ export const fetchRecentOrders = async () => {
 };
 
 export const updateProductSKUs = async (updates) => {
-  // To avoid hitting API rate limits on massive updates, we process them in chunks
-  const CHUNK_SIZE = 5;
-  
-  for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
-    const chunk = updates.slice(i, i + CHUNK_SIZE);
-    const promises = chunk.map((update) => {
+  // To avoid crashing the WooCommerce server with massive parallel saves, process strictly sequentially
+  for (const update of updates) {
+    try {
       if (update.variationId) {
-        return wcClient.put(`/wc/v3/products/${update.productId}/variations/${update.variationId}`, {
+        await wcClient.put(`/wc/v3/products/${update.productId}/variations/${update.variationId}`, {
           sku: update.sku
         });
       } else {
-        return wcClient.put(`/wc/v3/products/${update.productId}`, {
+        await wcClient.put(`/wc/v3/products/${update.productId}`, {
           sku: update.sku
         });
       }
-    });
-
-    const results = await Promise.allSettled(promises);
-    const failed = results.filter(r => r.status === 'rejected');
-    if (failed.length > 0) {
-      console.error('Failed to update some SKUs:', failed);
-      throw new Error(`Failed to update ${failed.length} SKUs in batch`);
+    } catch (error) {
+      console.error(`Failed to update SKU for product ${update.productId}:`, error);
+      throw new Error(`Failed to update SKU for product ${update.productId}`);
     }
   }
   return true;

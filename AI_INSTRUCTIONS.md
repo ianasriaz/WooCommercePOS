@@ -25,19 +25,20 @@ This application is a highly-optimized, client-side Point of Sale terminal desig
 - **`/sale` (`PosTerminal.jsx`)**: The core checkout terminal.
 
 ### 4. POS Terminal Core (`PosTerminal.jsx`)
-- **Barcode & Search Logic**: Handles barcode scanning natively. When a user types or a scanner inputs a string, it checks the local catalog array against `sku`, `id`, and custom meta fields.
-- **Variations**: Fully supports WooCommerce Variable Products. Selecting a variable product opens a modal allowing the cashier to select the specific size/color before it enters the cart.
-- **Checkout Execution**: Posts orders directly to `/wc/v3/orders`. Automatically sets the channel to `pos` or `in-store`, processes the payment (cash/bank), applies a generic `pos-customer` if no customer is selected, and updates the local state to trigger a success modal.
-- **Keyboard Shortcuts**: `F2` for Cash Payment, `F3` for Bank Transfer, `F9` to Execute Checkout.
+- **Barcode & Search Logic**: Handles barcode scanning natively by searching the `sku` field. It supports a pure WooCommerce architecture (using Barcode Studio to assign physical barcodes to the SKU field). The search engine uses a fallback WooCommerce REST API query for variations (which are not loaded upfront to save memory).
+- **Variations**: Fully supports WooCommerce Variable Products. Selecting a variable product opens a modal displaying real-time stock and the specific variation SKU/Barcode.
+- **Checkout Execution**: Posts orders directly to `/wc/v3/orders`. Supports custom POS discount amounts (submitted as negative fee lines). Automatically sets the channel to `pos`, processes the payment (cash/bank), applies a generic `pos-customer` if no customer is selected, and updates local state to trigger the receipt modal.
+- **Keyboard Shortcuts**: `F1` focuses search, `F2` for Cash Payment, `F3` for Bank Transfer, `F9` to Execute Checkout.
 
 ### 5. Layout & UI (`src/components/Layout.jsx`)
 - Wraps the Dashboard.
 - Features a highly minimalist header containing the Store Name, a "Toggle Fullscreen" button (using native `document.documentElement.requestFullscreen()`), a Settings modal, and a Sign Out button (with a browser `confirm` prompt to prevent accidental logouts).
 - Unused screens (Inventory, Sales History) have been strictly eradicated to keep the MVP lean and fast.
 
-### 6. WordPress Barcode Bridge Plugin
-- Located in `woocommerce-pos-barcode-bridge/`. 
-- This is a custom PHP plugin for the WordPress backend. It hooks into the WooCommerce REST API to ensure that custom fields (like `_barcode` or specialized SKU fields) are returned in the API responses so the React frontend can index and search them instantly.
+### 6. Architectural Roadmap (SaaS Transition)
+- **Supabase Standalone Mode**: Future architecture will decouple the UI from WooCommerce entirely, using Supabase as the Single Source of Truth (SSOT).
+- WooCommerce will be treated as an optional sync engine via Edge Functions/Webhooks, rather than a direct UI dependency.
+- **Offline-First Resilience**: Imminent upgrades include WebSocket-based stock sync and background worker pre-fetching for variations to eliminate all server-side latency during barcode scans.
 
 ---
 
@@ -55,9 +56,9 @@ When assisting with this codebase, adhere strictly to the following rules:
 
 ## 🕒 Recent Updates & Architecture Evolutions (July 2026)
 
-- **Sync Architecture**: The single "Sync" button has been deprecated in favor of a dual-button cluster logic: **Sync Stock** (Delta Sync, fetching only recently modified products via `lastSyncTimestamp`) and **Sync Inventory** (Full catalog rebuild). 
+- **Sync Architecture**: The single "Sync" button has been deprecated in favor of a dual-button cluster logic: **Sync Stock** (Delta Sync) and **Sync Inventory** (Full catalog rebuild). 
 - **Dashboard Consistency**: The POS Dashboard now fully leverages the Delta Sync engine to quickly fetch stock updates without blocking or re-fetching the entire catalog.
-- **Design Overhaul (Checkout Pane)**: The checkout pane was refined to use strict monochrome aesthetics (`#000000` pitch black background), white border accents for unselected/disabled buttons, and prominent typography.
-- **Cart UI Polish**: Stock status has been integrated as an inline badge (e.g., "X in stock" or "In-Stock") next to the product title. Individual item prices are hidden to declutter the checkout flow; only the computed line total is shown.
-- **Receipts**: Support for `whiteSpace: 'pre-wrap'` implemented for store addresses to preserve layout from the Store Profile settings.
-- **Validation**: Customer names are now strictly mandatory in the checkout modal alongside phone numbers.
+- **Checkout Refinements**: The POS now supports manual Discount injections during checkout (mapped to WC Fee Lines). The customer details pane was fixed to prevent input overflow (`box-sizing`).
+- **Barcode Workflow Shift**: The `woocommerce-pos-barcode-bridge` PHP plugin was permanently deleted. The architecture shifted to natively support "Barcode Studio" workflows where generated barcode numbers are saved directly into the WooCommerce `sku` field, which the POS queries natively.
+- **Variations API Optimization**: Added `sku` to the allowed `_fields` payload when fetching variations, ensuring SKUs render correctly in the variations popup.
+- **Search Fallback Engine**: Updated the real-time search bar to support "Enter to Server Search" for variation SKUs (since variations are not cached locally upfront).
