@@ -62,3 +62,5 @@ When assisting with this codebase, adhere strictly to the following rules:
 - **Barcode Workflow Shift**: The `woocommerce-pos-barcode-bridge` PHP plugin was permanently deleted. The architecture shifted to natively support "Barcode Studio" workflows where generated barcode numbers are saved directly into the WooCommerce `sku` field, which the POS queries natively.
 - **Variations API Optimization**: Added `sku` to the allowed `_fields` payload when fetching variations, ensuring SKUs render correctly in the variations popup.
 - **Search Fallback Engine**: Updated the real-time search bar to support "Enter to Server Search" for variation SKUs (since variations are not cached locally upfront).
+- **Repository Documentation & Presentation**: Generated a comprehensive `README.md` containing feature breakdowns, tech stack badge summaries, system architecture diagrams (Mermaid), keyboard shortcut mappings, and installation guides for external developers & recruiters.
+
