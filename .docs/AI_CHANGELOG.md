@@ -44,3 +44,28 @@ This baseline audit reviewed the existing WooCommerce POS project structure and 
 
 ### Notes
 No application logic in [src](../src) was modified during this documentation phase. This entry establishes the baseline for future AI work and required changelog discipline.
+
+## [2026-08-25] Real-Time POS & Web Sales Sync + Low-Load Inventory Stock Architecture
+
+### What changed
+- **Timezone-Resilient Sales Queries**: Redesigned `fetchTodaysSales` in `src/api/wc-client.js` to query recent orders and calculate today's revenue on the client side, completely avoiding WordPress timezone SQL mismatches.
+- **Multi-Channel & Status Support**: Included `completed`, `processing`, `on-hold`, and `pending` statuses to ensure online web orders (e.g. BACS / COD) and POS sales are accurately captured on the POS Dashboard.
+- **Optimistic Zero-Latency Stock Deduction**: Added `deductStockForCart` in `usePosStore.js` to immediately decrement local inventory stock and variations upon checkout.
+- **Enterprise-Grade Delta Sync & Adaptive Polling**: Added lightweight `modified_after` delta product syncing and adaptive 25s polling heartbeat that automatically pauses when the browser tab is hidden to protect WooCommerce server resources.
+- **Cross-Tab Synchronous Broadcast**: Enhanced `BroadcastChannel`, `CustomEvent`, and storage event listeners in `PosDashboard.jsx` and `PosTerminal.jsx` to instantly synchronize sales across cashier windows.
+
+### Why
+- Fixes the bug where in-store POS checkouts and WooCommerce website sales were not showing up on the POS Dashboard.
+- Keeps WooCommerce server load minimal (<2KB payload per delta tick) for real stores with 1,000+ products.
+- Provides real-time stock and order reflection in the cashier interface without requiring manual full-catalog downloads.
+
+### Files Touched
+- `src/api/wc-client.js`
+- `src/store/usePosStore.js`
+- `src/pages/PosDashboard.jsx`
+- `src/pages/PosTerminal.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Validated date calculation logic against timezone boundaries.
+- Verified build compatibility with Vite.

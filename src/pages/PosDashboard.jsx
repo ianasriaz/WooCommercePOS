@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchProducts, fetchTodaysSales, POS_ORDER_CREATED_EVENT } from '../api/wc-client';
 import { usePosStore } from '../store/usePosStore';
 import Layout from '../components/Layout';
 import BarcodeGeneratorModal from '../components/BarcodeGeneratorModal';
+
 /* ─── Design tokens ────────────────────────────────────────── */
 const T = {
   ink: '#0f172a',
@@ -36,7 +37,7 @@ const fmtDate = (d) =>
 const fmtTime = (d) =>
   d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' });
 
-/* ─── Inline SVG icons (utility only — never inside colored circles) ── */
+/* ─── Inline SVG icons ─────────────────────────────────────── */
 const Svg = ({ children, size = 16, strokeWidth = '1.6' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
@@ -45,13 +46,10 @@ const Svg = ({ children, size = 16, strokeWidth = '1.6' }) => (
   </svg>
 );
 const IcoRefresh = ({ size }) => <Svg size={size}><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></Svg>;
-const IcoExpand = ({ size = 13 }) => <Svg size={size}><path d="M8 3H3v5" /><path d="M16 3h5v5" /><path d="M3 16v5h5" /><path d="M21 16v5h-5" /></Svg>;
-const IcoCollapse = ({ size = 13 }) => <Svg size={size}><path d="M9 3H3v6" /><path d="M15 3h6v6" /><path d="M3 15v6h6" /><path d="M21 15v6h-6" /></Svg>;
 const IcoPlus = ({ size = 16 }) => <Svg size={size} strokeWidth="2"><path d="M12 5v14" /><path d="M5 12h14" /></Svg>;
-const IcoArrow = ({ size = 12 }) => <Svg size={size} strokeWidth="2"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></Svg>;
 const IcoBarcode = ({ size = 14 }) => <Svg size={size}><path d="M3 5v14M7 5v14M10 5v14M14 5v14M17 5v14M21 5v14" /></Svg>;
 
-/* ─── Shimmer keyframes (once, scoped) ─────────────────────── */
+/* ─── Shimmer keyframes ─────────────────────────────────────── */
 const ShimmerStyle = () => (
   <style>{`
     @keyframes posShimmer {
@@ -84,7 +82,7 @@ function LiveClock() {
   );
 }
 
-/* ─── Ledger strip (signature element) ─────────────────────── */
+/* ─── Ledger strip ─────────────────────────────────────────── */
 const LedgerSegment = ({ label, value, sub, tone = 'default', loading, last }) => {
   const toneColor = {
     default: T.ink,
@@ -156,7 +154,7 @@ const PanelHead = ({ title, badge, action }) => (
   </div>
 );
 
-/* ─── Status dot (replaces bubble pills) ───────────────────── */
+/* ─── Status dot ───────────────────────────────────────────── */
 const StatusDot = ({ label }) => {
   const color = { Out: T.danger, Low: T.warn, 'In stock': T.accent }[label] || T.accent;
   return (
@@ -181,7 +179,7 @@ const getOrderChannel = (order) => {
   return 'online';
 };
 
-/* ─── Main ─────────────────────────────────────────────────── */
+/* ─── Main PosDashboard ────────────────────────────────────── */
 function PosDashboard() {
   const products = usePosStore((s) => s.products);
   const posOrders = usePosStore((s) => s.posOrders);
@@ -199,20 +197,60 @@ function PosDashboard() {
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const confirmedOrdersRef = useRef(new Map());
 
-  const mergeOrders = (serverOrders) => {
-    const serverOrderIds = new Set(serverOrders.map((order) => order.id));
-    confirmedOrdersRef.current.forEach((order, orderId) => {
-      if (!serverOrderIds.has(orderId)) confirmedOrdersRef.current.delete(orderId);
+  const mergeOrders = useCallback((serverOrders = []) => {
+    const orderMap = new Map();
+
+    // 1. Add server orders
+    serverOrders.forEach((order) => {
+      if (order?.id) orderMap.set(order.id, order);
     });
-    reconcilePosOrders(serverOrders);
-    const merged = new Map(confirmedOrdersRef.current);
+
+    // 2. Add local posOrders from state/IDB
     posOrders.forEach((order) => {
-      if (serverOrderIds.has(order.id)) merged.set(order.id, order);
+      if (order?.id && !orderMap.has(order.id)) {
+        orderMap.set(order.id, order);
+      }
     });
-    serverOrders.forEach((order) => merged.set(order.id, order));
-    return Array.from(merged.values())
-      .sort((first, second) => new Date(second.date_created || 0) - new Date(first.date_created || 0));
-  };
+
+    // 3. Add any recently broadcasted orders in confirmedOrdersRef
+    confirmedOrdersRef.current.forEach((order, orderId) => {
+      if (orderId && !orderMap.has(orderId)) {
+        orderMap.set(orderId, order);
+      }
+    });
+
+    // Reconcile POS store with server state
+    reconcilePosOrders(serverOrders);
+
+    const now = new Date();
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth();
+    const todayDate = now.getDate();
+
+    // Filter to today's orders
+    const mergedList = Array.from(orderMap.values()).filter((order) => {
+      const dateStr = order.date_created || order.date_created_gmt;
+      if (!dateStr) return true; // keep recently created local orders if date pending
+      const orderDate = new Date(dateStr);
+      if (Number.isNaN(orderDate.getTime())) return true;
+
+      const isSameDay =
+        orderDate.getFullYear() === todayYear &&
+        orderDate.getMonth() === todayMonth &&
+        orderDate.getDate() === todayDate;
+
+      if (isSameDay) return true;
+
+      const timeDiffMs = now.getTime() - orderDate.getTime();
+      return timeDiffMs >= 0 && timeDiffMs <= 24 * 60 * 60 * 1000;
+    });
+
+    return mergedList.sort((a, b) => {
+      const dateA = new Date(a.date_created || a.date_created_gmt || 0).getTime();
+      const dateB = new Date(b.date_created || b.date_created_gmt || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [posOrders, reconcilePosOrders]);
 
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -231,17 +269,15 @@ function PosDashboard() {
         ]);
         setProducts(catalog);
         setTodayOrders(mergeOrders(sales));
-      } else if (manual) {
-        // Delta Sync + Sales
+      } else {
+        // Delta Sync for stock/products + fresh sales
         const [deltaCatalog, sales] = await Promise.all([
           fetchProducts(lastSyncTimestamp),
           fetchTodaysSales()
         ]);
-        updateProducts(deltaCatalog);
-        setTodayOrders(mergeOrders(sales));
-      } else {
-        // Just load sales
-        const sales = await fetchTodaysSales();
+        if (Array.isArray(deltaCatalog) && deltaCatalog.length > 0) {
+          updateProducts(deltaCatalog);
+        }
         setTodayOrders(mergeOrders(sales));
       }
     } catch {
@@ -266,13 +302,18 @@ function PosDashboard() {
           updateProducts(batch);
           setLoading(false);
         })
-        : Promise.resolve(products);
+        : (lastSyncTimestamp ? fetchProducts(lastSyncTimestamp) : Promise.resolve([]));
+      
       const salesPromise = fetchTodaysSales();
 
       try {
         const [catalog, sales] = await Promise.all([catalogPromise, salesPromise]);
         if (!alive) return;
-        if (needsFullSync) setProducts(catalog);
+        if (needsFullSync) {
+          setProducts(catalog);
+        } else if (Array.isArray(catalog) && catalog.length > 0) {
+          updateProducts(catalog);
+        }
         setTodayOrders(mergeOrders(sales));
       } catch {
         if (alive) setDashboardError('Failed to load dashboard data. Please try again.');
@@ -284,98 +325,120 @@ function PosDashboard() {
       }
     })();
     return () => { alive = false; };
-  }, [hasHydrated]); // Run once after IndexedDB state is ready
+  }, [hasHydrated]);
 
-  // Polling to keep revenue and orders instantly updated
+  // Real-time listener & adaptive heartbeat polling
   useEffect(() => {
     let alive = true;
     
-    const fetchSales = async () => {
+    const fetchSalesAndDelta = async () => {
       try {
-        const sales = await fetchTodaysSales();
-        if (alive) setTodayOrders(mergeOrders(sales));
+        const [sales, deltaProducts] = await Promise.all([
+          fetchTodaysSales(),
+          lastSyncTimestamp ? fetchProducts(lastSyncTimestamp) : Promise.resolve([]),
+        ]);
+        if (alive) {
+          setTodayOrders(mergeOrders(sales));
+          if (Array.isArray(deltaProducts) && deltaProducts.length > 0) {
+            updateProducts(deltaProducts);
+          }
+        }
       } catch (error) {
         if (alive) {
           const status = error?.response?.status;
-          setDashboardError(status === 401 || status === 403
-            ? 'WooCommerce rejected order access. Verify the API key has Read permission.'
-            : 'Unable to refresh sales data. Check the connection and try again.');
+          if (status === 401 || status === 403) {
+            setDashboardError('WooCommerce rejected order access. Verify API key permissions.');
+          }
         }
-      }
-    };
-
-    const refreshAfterPosOrder = async () => {
-      // WooCommerce may need a moment to commit the order before it appears in GET /orders.
-      for (const delay of [0, 750, 1500]) {
-        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-        if (!alive) return;
-        await fetchSales();
       }
     };
 
     const handlePosOrderCreated = (event) => {
       const message = event?.detail || event?.data || null;
       const order = message?.order;
-      const eventDate = message?.createdAt ? new Date(message.createdAt) : null;
-      const now = new Date();
-      const isToday = eventDate
-        && eventDate.getFullYear() === now.getFullYear()
-        && eventDate.getMonth() === now.getMonth()
-        && eventDate.getDate() === now.getDate();
 
-      if (order?.id && isToday) {
+      if (order?.id) {
         confirmedOrdersRef.current.set(order.id, order);
-        setTodayOrders((currentOrders) => [
-          order,
-          ...currentOrders.filter((currentOrder) => currentOrder.id !== order.id),
-        ]);
+        setTodayOrders((currentOrders) => {
+          const updated = [
+            order,
+            ...currentOrders.filter((currentOrder) => currentOrder.id !== order.id),
+          ];
+          return updated;
+        });
         setDashboardError('');
       }
 
-      refreshAfterPosOrder();
+      // Quick background sync after POS sale
+      setTimeout(() => {
+        if (alive) fetchSalesAndDelta();
+      }, 1000);
     };
+
     const handleStorage = (event) => {
       if (event.key === POS_ORDER_CREATED_EVENT && event.newValue) {
         try {
           handlePosOrderCreated({ data: JSON.parse(event.newValue) });
         } catch {
-          // The WooCommerce read below remains the fallback.
+          // fallback
         }
       }
     };
+
     const orderChannel = 'BroadcastChannel' in window
       ? new BroadcastChannel(POS_ORDER_CREATED_EVENT)
       : null;
     orderChannel?.addEventListener('message', handlePosOrderCreated);
     window.addEventListener(POS_ORDER_CREATED_EVENT, handlePosOrderCreated);
     window.addEventListener('storage', handleStorage);
+
     try {
       const storedMessage = window.localStorage.getItem(POS_ORDER_CREATED_EVENT);
       if (storedMessage) handleStorage({ key: POS_ORDER_CREATED_EVENT, newValue: storedMessage });
     } catch {
-      // The WooCommerce read below remains the fallback.
+      // fallback
     }
 
-    // Poll every 60 seconds instead of 5 to reduce server load
-    const interval = setInterval(fetchSales, 60000);
-    
-    // Smart fetch when user switches back to the tab
+    // Adaptive polling: 25 seconds when tab is active
+    let interval = null;
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            fetchSalesAndDelta();
+          }
+        }, 25000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    startPolling();
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchSales();
+        fetchSalesAndDelta();
+        startPolling();
+      } else {
+        stopPolling();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => { 
       alive = false; 
-      clearInterval(interval); 
+      stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       orderChannel?.close();
       window.removeEventListener(POS_ORDER_CREATED_EVENT, handlePosOrderCreated);
       window.removeEventListener('storage', handleStorage);
     };
-  }, []);
+  }, [lastSyncTimestamp, mergeOrders, updateProducts]);
 
   const summary = useMemo(() => {
     const totalSales = todayOrders.reduce((s, o) => s + (Number.parseFloat(o.total) || 0), 0);
@@ -446,8 +509,6 @@ function PosDashboard() {
               {refreshing ? 'Syncing' : 'Sync data'}
             </button>
 
-
-
             <button
               type="button"
               onClick={() => setShowBarcodeModal(true)}
@@ -495,7 +556,7 @@ function PosDashboard() {
             </div>
           )}
 
-          {/* Ledger strip — signature element */}
+          {/* Ledger strip */}
           <div style={{
             display: 'flex', flexWrap: 'wrap',
             background: T.surface, border: `1px solid ${T.line}`, borderRadius: 10,
@@ -570,12 +631,6 @@ function PosDashboard() {
                       <Skel w="60%" h={13} style={{ marginLeft: 'auto' }} />
                     </div>
                   ))}
-                </div>
-              ) : products.length === 0 ? (
-                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 13.5, color: T.inkSoft, margin: 0, fontWeight: 500 }}>
-                    No products found. Sync data to load your catalog.
-                  </p>
                 </div>
               ) : (
                 <div style={{ maxHeight: 420, overflowY: 'auto' }}>
@@ -704,8 +759,6 @@ function PosDashboard() {
                   })}
                 </div>
               )}
-
-
             </Panel>
           </div>
         </div>

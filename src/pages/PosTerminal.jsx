@@ -211,6 +211,7 @@ function PosTerminal() {
   const updateQuantity = usePosStore((s) => s.updateQuantity);
   const clearCart = usePosStore((s) => s.clearCart);
   const recordPosOrder = usePosStore((s) => s.recordPosOrder);
+  const deductStockForCart = usePosStore((s) => s.deductStockForCart);
   const cartTotal = usePosStore((s) => s.cartTotal());
   const variationsCache = usePosStore((s) => s.variationsCache);
   const setVariationsCache = usePosStore((s) => s.setVariationsCache);
@@ -566,6 +567,7 @@ function PosTerminal() {
       setCheckoutStage('Creating order…');
       const orderData = await createPosOrder(cart, { name, phone, email: '' }, paymentOption, discountAmount);
       recordPosOrder(orderData);
+      deductStockForCart(cart);
       const affectedProductIds = [...new Set(cart.map((item) => item.id))];
       Promise.all(affectedProductIds.map(async (productId) => {
         const product = await fetchProduct(productId);

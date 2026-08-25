@@ -48,12 +48,12 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
   const perPage = 100;
 
   const baseParams = {
-    _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,status,categories',
+    _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,date_modified,status,categories',
     per_page: perPage,
   };
 
   if (lastSyncDate) {
-    baseParams.modified_after = lastSyncDate;
+    baseParams.modified_after = new Date(lastSyncDate).toISOString();
     baseParams.status = 'any';
   }
 
@@ -62,7 +62,7 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
     params: { ...baseParams, page: 1 },
   });
 
-  let allProducts = [...firstResponse.data];
+  let allProducts = Array.isArray(firstResponse.data) ? [...firstResponse.data] : [];
   if (onProgress) onProgress(allProducts);
 
   const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
@@ -72,8 +72,10 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
     for (let p = 2; p <= totalPages; p++) {
       try {
         const res = await wcClient.get('/wc/v3/products', { params: { ...baseParams, page: p } });
-        allProducts = [...allProducts, ...res.data];
-        if (onProgress) onProgress([...res.data]);
+        if (Array.isArray(res.data)) {
+          allProducts = [...allProducts, ...res.data];
+          if (onProgress) onProgress([...res.data]);
+        }
       } catch (error) {
         console.error(`Failed to fetch products page ${p}`, error);
         throw error;
@@ -91,14 +93,16 @@ export const fetchVariations = async (productId) => {
     page: 1,
   };
   const firstResponse = await wcClient.get(`/wc/v3/products/${productId}/variations`, { params });
-  const variations = [...firstResponse.data];
+  const variations = Array.isArray(firstResponse.data) ? [...firstResponse.data] : [];
   const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
 
   for (let page = 2; page <= totalPages; page += 1) {
     const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
       params: { ...params, page },
     });
-    variations.push(...response.data);
+    if (Array.isArray(response.data)) {
+      variations.push(...response.data);
+    }
   }
 
   return variations;
@@ -107,7 +111,7 @@ export const fetchVariations = async (productId) => {
 export const fetchProduct = async (productId) => {
   const response = await wcClient.get(`/wc/v3/products/${productId}`, {
     params: {
-      _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,status,categories',
+      _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,date_modified,status,categories',
     },
   });
 
@@ -149,7 +153,6 @@ export const checkStock = async (productId, variationId = null) => {
 
     return parseStock(response.data);
   } catch (error) {
-    // If the custom endpoint doesn't exist, WP might throw 401/403 (auth mismatch on core namespaces) or 404
     if (
       error.response?.status !== 404 &&
       error.response?.status !== 401 &&
@@ -234,8 +237,6 @@ export const createPosOrder = async (cartItems, customerDetails = {}, paymentOpt
       error?.message ||
       'Checkout request failed.';
 
-    // Helpful for diagnosing WooCommerce / Hetzner rejections during checkout.
-    // eslint-disable-next-line no-console
     console.error(error.response?.data);
     const wrappedError = new Error(apiMessage);
     wrappedError.cause = error;
@@ -244,41 +245,67 @@ export const createPosOrder = async (cartItems, customerDetails = {}, paymentOpt
 };
 
 export const fetchTodaysSales = async () => {
-  const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
-
+  // Fetch latest orders sorted newest first (per_page 100)
+  // Timezone resilience: Filter on client side so WordPress server vs browser timezone mismatches never break the query.
   const params = {
-    after: startOfDay.toISOString(),
-    before: endOfDay.toISOString(),
     status: 'any',
     orderby: 'date',
     order: 'desc',
     per_page: 100,
     page: 1,
     _pos_refresh: Date.now(),
-    _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via,meta_data',
+    _fields: 'id,total,date_created,date_created_gmt,status,line_items,payment_method,payment_method_title,created_via,meta_data,billing',
   };
-  const firstResponse = await wcClient.get('/wc/v3/orders', { params });
-  const orders = [...firstResponse.data];
-  const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
 
-  for (let page = 2; page <= totalPages; page += 1) {
-    const response = await wcClient.get('/wc/v3/orders', { params: { ...params, page } });
-    orders.push(...response.data);
-  }
+  const response = await wcClient.get('/wc/v3/orders', { params });
+  const allOrders = Array.isArray(response.data) ? response.data : [];
 
-  return orders.filter((order) => ['processing', 'completed'].includes(order.status));
+  const now = new Date();
+  const todayYear = now.getFullYear();
+  const todayMonth = now.getMonth();
+  const todayDate = now.getDate();
+
+  // Valid revenue-generating order statuses (excluding cancelled, refunded, failed, trash)
+  const validStatuses = new Set(['completed', 'processing', 'on-hold', 'pending']);
+
+  const filteredOrders = allOrders.filter((order) => {
+    if (!validStatuses.has(order.status)) return false;
+
+    const dateStr = order.date_created || order.date_created_gmt;
+    if (!dateStr) return false;
+
+    const orderDate = new Date(dateStr);
+    if (Number.isNaN(orderDate.getTime())) return false;
+
+    // 1. Check if same calendar day locally
+    const isSameDay =
+      orderDate.getFullYear() === todayYear &&
+      orderDate.getMonth() === todayMonth &&
+      orderDate.getDate() === todayDate;
+
+    if (isSameDay) return true;
+
+    // 2. Check if created within last 24h and matches date either locally or in UTC
+    const timeDiffMs = now.getTime() - orderDate.getTime();
+    if (timeDiffMs >= 0 && timeDiffMs <= 24 * 60 * 60 * 1000) {
+      if (orderDate.getUTCDate() === now.getUTCDate() || orderDate.getDate() === todayDate) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+  return filteredOrders;
 };
 
 export const fetchRecentOrders = async () => {
   const response = await wcClient.get('/wc/v3/orders', {
     params: {
       per_page: 100,
-      _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via,meta_data',
+      orderby: 'date',
+      order: 'desc',
+      _fields: 'id,total,date_created,date_created_gmt,status,line_items,payment_method,payment_method_title,created_via,meta_data,billing',
     },
   });
 
@@ -286,7 +313,6 @@ export const fetchRecentOrders = async () => {
 };
 
 export const updateProductSKUs = async (updates) => {
-  // To avoid crashing the WooCommerce server with massive parallel saves, process strictly sequentially
   for (const update of updates) {
     try {
       if (update.variationId) {
