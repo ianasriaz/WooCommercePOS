@@ -75,6 +75,11 @@ export const usePosStore = create(
             ...product,
             name: displayName,
             price: displayPrice,
+            ...(variation ? {
+              manage_stock: variation.manage_stock ?? product.manage_stock,
+              stock_quantity: variation.stock_quantity ?? product.stock_quantity,
+              stock_status: variation.stock_status ?? product.stock_status,
+            } : {}),
             variation_id: variationId,
             variation_attributes: variation?.attributes ?? null,
             quantity: 1,

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { supabase } from '../api/supabaseClient';
+import { checkSupabaseConfig, getSupabaseClient } from '../api/supabaseClient';
 import { idbStorage } from './idb-storage';
 
 export const useAuthStore = create(
@@ -26,7 +26,17 @@ export const useAuthStore = create(
       loginWithLicenseKey: async (key) => {
         set({ isLoading: true, error: null });
         try {
-          const { data, error } = await supabase
+          const configStatus = checkSupabaseConfig();
+          if (!configStatus.ok) {
+            set({
+              error: `${configStatus.message} Missing: ${configStatus.missing.join(', ') || 'none'}.`,
+              isLoading: false,
+            });
+            return false;
+          }
+
+          const client = getSupabaseClient();
+          const { data, error } = await client
             .from('licenses')
             .select('*')
             .eq('license_key', key)

@@ -53,6 +53,7 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
         if (onProgress) onProgress([...res.data]);
       } catch (error) {
         console.error(`Failed to fetch products page ${p}`, error);
+        throw error;
       }
     }
   }
@@ -61,10 +62,29 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
 };
 
 export const fetchVariations = async (productId) => {
-  const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
+  const params = {
+    _fields: 'id,attributes,price,stock_quantity,stock_status,manage_stock,image,sku',
+    per_page: 100,
+    page: 1,
+  };
+  const firstResponse = await wcClient.get(`/wc/v3/products/${productId}/variations`, { params });
+  const variations = [...firstResponse.data];
+  const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
+      params: { ...params, page },
+    });
+    variations.push(...response.data);
+  }
+
+  return variations;
+};
+
+export const fetchProduct = async (productId) => {
+  const response = await wcClient.get(`/wc/v3/products/${productId}`, {
     params: {
-      _fields: 'id,attributes,price,stock_quantity,stock_status,manage_stock,image,sku',
-      per_page: 100,
+      _fields: 'id,name,sku,price,stock_quantity,stock_status,manage_stock,type,variations,global_unique_id,meta_data,images,date_created,status,categories',
     },
   });
 
@@ -202,17 +222,24 @@ export const fetchTodaysSales = async () => {
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const response = await wcClient.get('/wc/v3/orders', {
-    params: {
-      after: startOfDay.toISOString(),
-      before: endOfDay.toISOString(),
-      status: 'processing,completed',
-      per_page: 100,
-      _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via',
-    },
-  });
+  const params = {
+    after: startOfDay.toISOString(),
+    before: endOfDay.toISOString(),
+    status: 'processing,completed',
+    per_page: 100,
+    page: 1,
+    _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via',
+  };
+  const firstResponse = await wcClient.get('/wc/v3/orders', { params });
+  const orders = [...firstResponse.data];
+  const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
 
-  return response.data;
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await wcClient.get('/wc/v3/orders', { params: { ...params, page } });
+    orders.push(...response.data);
+  }
+
+  return orders;
 };
 
 export const fetchRecentOrders = async () => {
@@ -222,6 +249,7 @@ export const fetchRecentOrders = async () => {
       _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via',
     },
   });
+
   return response.data;
 };
 

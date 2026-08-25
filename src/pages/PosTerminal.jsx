@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { checkStock, createPosOrder, fetchProducts, fetchVariations } from '../api/wc-client';
+import { checkStock, createPosOrder, fetchProduct, fetchProducts, fetchVariations } from '../api/wc-client';
 import ReceiptModal from '../components/ReceiptModal';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { usePosStore } from '../store/usePosStore';
@@ -259,6 +259,7 @@ function PosTerminal() {
   const audioContextRef = useRef(null);
   const cashTenderInputRef = useRef(null);
   const checkoutButtonRef = useRef(null);
+  const catalogSyncInFlightRef = useRef(false);
 
   // Robustly auto-focus the search bar when the POS terminal mounts
   useEffect(() => {
@@ -384,6 +385,7 @@ function PosTerminal() {
     (async () => {
       setLoadingProducts(true);
       setLoadError('');
+      catalogSyncInFlightRef.current = true;
       try {
         const catalog = await fetchProducts(null, (batch) => {
           if (alive) {
@@ -397,6 +399,7 @@ function PosTerminal() {
       } catch {
         if (alive) setLoadError('Failed to load products. Check API credentials and try again.');
       } finally {
+        catalogSyncInFlightRef.current = false;
         if (alive) setLoadingProducts(false);
       }
     })();
@@ -404,10 +407,53 @@ function PosTerminal() {
     return () => { alive = false; };
   }, [setProducts, products.length, _hasHydrated, updateProducts]);
 
+  useEffect(() => {
+    if (!_hasHydrated || !lastSyncTimestamp || loadingProducts) return undefined;
+
+    let alive = true;
+    let syncPromise = null;
+    const syncStockUpdates = async () => {
+      if (!alive || catalogSyncInFlightRef.current || syncPromise) return;
+
+      syncPromise = fetchProducts(lastSyncTimestamp)
+        .then((changedProducts) => {
+          if (alive) updateProducts(changedProducts);
+        })
+        .catch((error) => {
+          console.error('Background stock sync error:', error);
+        })
+        .finally(() => {
+          syncPromise = null;
+        });
+
+      await syncPromise;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncStockUpdates();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const intervalId = window.setInterval(syncStockUpdates, 180000);
+    return () => {
+      alive = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [_hasHydrated, lastSyncTimestamp, loadingProducts, updateProducts]);
+
   const getLocalStock = (item) => {
-    if (item?.manage_stock === false && item?.stock_status === 'instock') return Number.MAX_SAFE_INTEGER;
-    if (item?.stock_status === 'outofstock') return 0;
-    return Number.parseInt(item?.stock_quantity ?? item?.stock ?? 0, 10) || 0;
+    const cachedVariation = item?.variation_id
+      ? variationsCache[item.id]?.find((variation) => variation.id === item.variation_id)
+      : null;
+    const stockSource = cachedVariation || item;
+
+    if (stockSource?.stock_status === 'outofstock') return 0;
+    if (stockSource?.manage_stock === false) return Number.MAX_SAFE_INTEGER;
+
+    const quantity = Number.parseInt(stockSource?.stock_quantity ?? stockSource?.stock, 10);
+    if (Number.isFinite(quantity)) return Math.max(0, quantity);
+    return stockSource?.stock_status === 'instock' ? Number.MAX_SAFE_INTEGER : 0;
   };
 
   const handleOpenVariations = async (product) => {
@@ -518,6 +564,17 @@ function PosTerminal() {
       }
       setCheckoutStage('Creating order…');
       const orderData = await createPosOrder(cart, { name, phone, email: '' }, paymentOption, discountAmount);
+      const affectedProductIds = [...new Set(cart.map((item) => item.id))];
+      Promise.all(affectedProductIds.map(async (productId) => {
+        const product = await fetchProduct(productId);
+        if (product?.type === 'variable') {
+          const freshVariations = await fetchVariations(productId);
+          setVariationsCache(productId, freshVariations);
+        }
+        return product;
+      }))
+        .then((updatedProducts) => updateProducts(updatedProducts))
+        .catch((error) => console.error('Post-checkout stock refresh error:', error));
       setCompletedOrder(orderData);
       setIsCustomerOpen(false);
       playPosSound('checkout');
