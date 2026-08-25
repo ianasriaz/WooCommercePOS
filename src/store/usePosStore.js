@@ -23,6 +23,7 @@ const initialState = {
   cart: [],
   variationsCache: {},
   printedBarcodes: [], // Track SKUs that have been printed
+  posOrders: [],
   lastSyncTimestamp: null,
   _hasHydrated: false,
 };
@@ -34,6 +35,18 @@ export const usePosStore = create(
 
       setProducts: (products) => set({ products, lastSyncTimestamp: new Date().toISOString() }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
+
+      recordPosOrder: (order) => set((state) => ({
+        posOrders: [order, ...state.posOrders.filter((savedOrder) => savedOrder.id !== order.id)].slice(0, 500),
+      })),
+
+      reconcilePosOrders: (serverOrders) => set((state) => {
+        const serverOrderIds = new Set(serverOrders.map((order) => order.id));
+        const retainedOrders = state.posOrders.filter((order) => serverOrderIds.has(order.id));
+        return retainedOrders.length === state.posOrders.length
+          ? state
+          : { posOrders: retainedOrders };
+      }),
       
       updateProducts: (newProducts) => set((state) => {
         const existingMap = new Map(state.products.map(p => [p.id, p]));
@@ -152,6 +165,7 @@ export const usePosStore = create(
         products: state.products,
         cart: state.cart,
         printedBarcodes: state.printedBarcodes,
+        posOrders: state.posOrders,
         lastSyncTimestamp: state.lastSyncTimestamp,
       }),
       onRehydrateStorage: () => (state) => {

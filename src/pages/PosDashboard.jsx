@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchProducts, fetchTodaysSales, POS_ORDER_CREATED_EVENT } from '../api/wc-client';
 import { usePosStore } from '../store/usePosStore';
@@ -171,8 +171,11 @@ const getOrderChannel = (order) => {
   const method = String(order?.payment_method || '').toLowerCase();
   const title = String(order?.payment_method_title || '').toLowerCase();
   const createdVia = String(order?.created_via || '').toLowerCase();
+  const posMeta = Array.isArray(order?.meta_data)
+    ? order.meta_data.find((meta) => meta?.key === '_pos_order')?.value
+    : null;
 
-  if (method === 'pos_cash' || title.includes('in-store') || title.includes('in store') || createdVia === 'rest-api') {
+  if (posMeta === 'yes' || method === 'pos_cash' || title.includes('in-store') || title.includes('in store') || createdVia === 'pos-terminal') {
     return 'in-store';
   }
   return 'online';
@@ -181,6 +184,9 @@ const getOrderChannel = (order) => {
 /* ─── Main ─────────────────────────────────────────────────── */
 function PosDashboard() {
   const products = usePosStore((s) => s.products);
+  const posOrders = usePosStore((s) => s.posOrders);
+  const hasHydrated = usePosStore((s) => s._hasHydrated);
+  const reconcilePosOrders = usePosStore((s) => s.reconcilePosOrders);
   const setProducts = usePosStore((s) => s.setProducts);
   const updateProducts = usePosStore((s) => s.updateProducts);
   const lastSyncTimestamp = usePosStore((s) => s.lastSyncTimestamp);
@@ -191,6 +197,22 @@ function PosDashboard() {
   const [todayOrders, setTodayOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const confirmedOrdersRef = useRef(new Map());
+
+  const mergeOrders = (serverOrders) => {
+    const serverOrderIds = new Set(serverOrders.map((order) => order.id));
+    confirmedOrdersRef.current.forEach((order, orderId) => {
+      if (!serverOrderIds.has(orderId)) confirmedOrdersRef.current.delete(orderId);
+    });
+    reconcilePosOrders(serverOrders);
+    const merged = new Map(confirmedOrdersRef.current);
+    posOrders.forEach((order) => {
+      if (serverOrderIds.has(order.id)) merged.set(order.id, order);
+    });
+    serverOrders.forEach((order) => merged.set(order.id, order));
+    return Array.from(merged.values())
+      .sort((first, second) => new Date(second.date_created || 0) - new Date(first.date_created || 0));
+  };
 
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -208,7 +230,7 @@ function PosDashboard() {
           fetchTodaysSales(),
         ]);
         setProducts(catalog);
-        setTodayOrders(sales);
+        setTodayOrders(mergeOrders(sales));
       } else if (manual) {
         // Delta Sync + Sales
         const [deltaCatalog, sales] = await Promise.all([
@@ -216,11 +238,11 @@ function PosDashboard() {
           fetchTodaysSales()
         ]);
         updateProducts(deltaCatalog);
-        setTodayOrders(sales);
+        setTodayOrders(mergeOrders(sales));
       } else {
         // Just load sales
         const sales = await fetchTodaysSales();
-        setTodayOrders(sales);
+        setTodayOrders(mergeOrders(sales));
       }
     } catch {
       setDashboardError('Failed to load dashboard data. Please check your connection.');
@@ -233,6 +255,7 @@ function PosDashboard() {
 
   useEffect(() => {
     let alive = true;
+    if (!hasHydrated) return () => { alive = false; };
     (async () => {
       const needsFullSync = products.length === 0 || products.some(p => p.categories === undefined);
       if (products.length === 0) setLoading(true);
@@ -250,7 +273,7 @@ function PosDashboard() {
         const [catalog, sales] = await Promise.all([catalogPromise, salesPromise]);
         if (!alive) return;
         if (needsFullSync) setProducts(catalog);
-        setTodayOrders(sales);
+        setTodayOrders(mergeOrders(sales));
       } catch {
         if (alive) setDashboardError('Failed to load dashboard data. Please try again.');
       } finally {
@@ -261,7 +284,7 @@ function PosDashboard() {
       }
     })();
     return () => { alive = false; };
-  }, []); // Run once on mount
+  }, [hasHydrated]); // Run once after IndexedDB state is ready
 
   // Polling to keep revenue and orders instantly updated
   useEffect(() => {
@@ -270,7 +293,7 @@ function PosDashboard() {
     const fetchSales = async () => {
       try {
         const sales = await fetchTodaysSales();
-        if (alive) setTodayOrders(sales);
+        if (alive) setTodayOrders(mergeOrders(sales));
       } catch (error) {
         if (alive) {
           const status = error?.response?.status;
@@ -290,9 +313,35 @@ function PosDashboard() {
       }
     };
 
-    const handlePosOrderCreated = () => refreshAfterPosOrder();
+    const handlePosOrderCreated = (event) => {
+      const message = event?.detail || event?.data || null;
+      const order = message?.order;
+      const eventDate = message?.createdAt ? new Date(message.createdAt) : null;
+      const now = new Date();
+      const isToday = eventDate
+        && eventDate.getFullYear() === now.getFullYear()
+        && eventDate.getMonth() === now.getMonth()
+        && eventDate.getDate() === now.getDate();
+
+      if (order?.id && isToday) {
+        confirmedOrdersRef.current.set(order.id, order);
+        setTodayOrders((currentOrders) => [
+          order,
+          ...currentOrders.filter((currentOrder) => currentOrder.id !== order.id),
+        ]);
+        setDashboardError('');
+      }
+
+      refreshAfterPosOrder();
+    };
     const handleStorage = (event) => {
-      if (event.key === POS_ORDER_CREATED_EVENT && event.newValue) handlePosOrderCreated();
+      if (event.key === POS_ORDER_CREATED_EVENT && event.newValue) {
+        try {
+          handlePosOrderCreated({ data: JSON.parse(event.newValue) });
+        } catch {
+          // The WooCommerce read below remains the fallback.
+        }
+      }
     };
     const orderChannel = 'BroadcastChannel' in window
       ? new BroadcastChannel(POS_ORDER_CREATED_EVENT)
@@ -300,6 +349,12 @@ function PosDashboard() {
     orderChannel?.addEventListener('message', handlePosOrderCreated);
     window.addEventListener(POS_ORDER_CREATED_EVENT, handlePosOrderCreated);
     window.addEventListener('storage', handleStorage);
+    try {
+      const storedMessage = window.localStorage.getItem(POS_ORDER_CREATED_EVENT);
+      if (storedMessage) handleStorage({ key: POS_ORDER_CREATED_EVENT, newValue: storedMessage });
+    } catch {
+      // The WooCommerce read below remains the fallback.
+    }
 
     // Poll every 60 seconds instead of 5 to reduce server load
     const interval = setInterval(fetchSales, 60000);
