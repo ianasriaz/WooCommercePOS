@@ -89,3 +89,14 @@ No application logic in [src](../src) was modified during this documentation pha
 
 ### Verification Performed
 - Validated component compilation and Vite production build.
+
+## [2026-08-25] Dashboard Polish: Minimalist Live Dot & Clean In-Store Payment Split
+
+### What changed
+- **Clean Inline Live Indicator**: Removed the bulky green status pill in the header and replaced it with a minimalist inline green dot (`● Live`) seamlessly aligned with the date/time typography.
+- **Embedded In-Store Payment Breakdown**: Integrated `Cash: Rs X · Card: Rs Y` directly into the **In-Store POS** card subtext.
+- **Removed Extraneous Shift Strip**: Eliminated the artificial register float bar to restore vertical screen space and keep the UI clean.
+
+### Files Touched
+- `src/pages/PosDashboard.jsx`
+- `.docs/AI_CHANGELOG.md`

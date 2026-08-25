@@ -573,20 +573,14 @@ function PosDashboard() {
             <span style={{ width: 1, height: 16, background: T.line }} />
             <LiveClock />
             
-            {/* Live Sync Status Indicator (#5) */}
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 10px',
-              borderRadius: 20, background: refreshing ? '#fef3c7' : '#ecfdf5',
-              border: `1px solid ${refreshing ? '#fde68a' : '#a7f3d0'}`,
-              fontSize: 12, fontWeight: 600, color: refreshing ? '#92400e' : '#065f46'
-            }}>
+            {/* Clean minimal live dot matching day/date typography */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 500, color: T.inkSoft }}>
               <span className={refreshing ? '' : 'live-pulse-dot'} style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: refreshing ? '#d97706' : '#10b981'
+                background: refreshing ? '#d97706' : '#16a34a',
+                display: 'inline-block'
               }} />
-              <span>
-                {refreshing ? 'Syncing delta...' : `Live Sync Connected (${products.length.toLocaleString()} items)`}
-              </span>
+              <span>{refreshing ? 'Syncing...' : 'Live'}</span>
             </div>
           </div>
 
@@ -666,14 +660,14 @@ function PosDashboard() {
               <LedgerSegment
                 label="Revenue today"
                 value={salesLoading ? '' : formatPkr(summary.totalSales)}
-                sub={`${summary.orderCount} orders · Avg ${formatPkr(summary.avgBasket)}`}
+                sub={`${summary.orderCount} orders today`}
                 tone="default"
                 loading={salesLoading}
               />
               <LedgerSegment
                 label="In-store POS"
                 value={salesLoading ? '' : formatPkr(summary.inStoreSales)}
-                sub={`${summary.inStoreOrderCount} sales · Cash: ${formatPkr(summary.cashTotal)}`}
+                sub={`Cash: ${formatPkr(summary.cashTotal)} · Card: ${formatPkr(summary.bankTotal)}`}
                 tone="accent"
                 loading={salesLoading}
               />
@@ -694,24 +688,6 @@ function PosDashboard() {
                 onClick={() => setInventoryFilter(inventoryFilter === 'out' ? 'all' : 'out')}
                 last
               />
-            </div>
-
-            {/* Shift & Payment Method Breakdown Strip (#4) */}
-            <div style={{
-              padding: '10px 24px', background: '#fafbfc', borderTop: `1px solid ${T.lineSoft}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
-              fontSize: 12.5, color: T.inkSoft, fontWeight: 500
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontWeight: 700, color: T.ink }}>Register #1 Active</span>
-                <span>•</span>
-                <span>Expected Cash Float: <strong style={{ color: T.accent, fontFamily: T.mono }}>{formatPkr(summary.cashTotal)}</strong></span>
-                <span>•</span>
-                <span>Bank/Transfer: <strong style={{ color: T.ink, fontFamily: T.mono }}>{formatPkr(summary.bankTotal)}</strong></span>
-              </div>
-              <div style={{ fontSize: 11.5, color: T.inkFaint }}>
-                Shift Started: Today · Cashier: In-Store POS
-              </div>
             </div>
           </div>
 
