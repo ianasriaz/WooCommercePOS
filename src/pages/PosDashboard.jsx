@@ -185,7 +185,8 @@ function PosDashboard() {
   const updateProducts = usePosStore((s) => s.updateProducts);
   const lastSyncTimestamp = usePosStore((s) => s.lastSyncTimestamp);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(products.length === 0);
+  const [salesLoading, setSalesLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
   const [todayOrders, setTodayOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -194,13 +195,17 @@ function PosDashboard() {
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
     else setLoading(true);
+    setSalesLoading(true);
     setDashboardError('');
     try {
       if (products.length === 0) {
         // Initial Full Sync
         const [catalog, sales] = await Promise.all([
-          fetchProducts(),
-          fetchTodaysSales()
+          fetchProducts(null, (batch) => {
+            updateProducts(batch);
+            setLoading(false);
+          }),
+          fetchTodaysSales(),
         ]);
         setProducts(catalog);
         setTodayOrders(sales);
@@ -221,6 +226,7 @@ function PosDashboard() {
       setDashboardError('Failed to load dashboard data. Please check your connection.');
     } finally {
       setLoading(false);
+      setSalesLoading(false);
       setRefreshing(false);
     }
   };
@@ -228,21 +234,30 @@ function PosDashboard() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      setLoading(true);
+      const needsFullSync = products.length === 0 || products.some(p => p.categories === undefined);
+      if (products.length === 0) setLoading(true);
+
+      const catalogPromise = needsFullSync
+        ? fetchProducts(null, (batch) => {
+          if (!alive) return;
+          updateProducts(batch);
+          setLoading(false);
+        })
+        : Promise.resolve(products);
+      const salesPromise = fetchTodaysSales();
+
       try {
-        // Force a re-sync if the cache is empty or if ANY product is missing categories
-        const needsFullSync = products.length === 0 || products.some(p => p.categories === undefined);
-        const [catalog, sales] = await Promise.all([
-          needsFullSync ? fetchProducts() : Promise.resolve(products),
-          fetchTodaysSales()
-        ]);
+        const [catalog, sales] = await Promise.all([catalogPromise, salesPromise]);
         if (!alive) return;
         if (needsFullSync) setProducts(catalog);
         setTodayOrders(sales);
       } catch {
         if (alive) setDashboardError('Failed to load dashboard data. Please try again.');
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setSalesLoading(false);
+        }
       }
     })();
     return () => { alive = false; };
@@ -405,31 +420,31 @@ function PosDashboard() {
           }}>
             <LedgerSegment
               label="Revenue today"
-              value={loading ? '' : formatPkr(summary.totalSales)}
+              value={salesLoading ? '' : formatPkr(summary.totalSales)}
               sub={`${summary.orderCount} orders`}
               tone="default"
-              loading={loading}
+              loading={salesLoading}
             />
             <LedgerSegment
               label="In-store"
-              value={loading ? '' : formatPkr(summary.inStoreSales)}
+              value={salesLoading ? '' : formatPkr(summary.inStoreSales)}
               sub={`${summary.inStoreOrderCount} POS`}
               tone="accent"
-              loading={loading}
+              loading={salesLoading}
             />
             <LedgerSegment
               label="Online"
-              value={loading ? '' : formatPkr(summary.onlineSales)}
+              value={salesLoading ? '' : formatPkr(summary.onlineSales)}
               sub={`${summary.onlineOrderCount} web`}
               tone="default"
-              loading={loading}
+              loading={salesLoading}
             />
             <LedgerSegment
               label="Stock alerts"
-              value={loading ? '' : String(summary.lowStock + summary.outOfStock)}
-              sub={loading ? '' : `${summary.outOfStock} out · ${summary.lowStock} low`}
+              value={products.length === 0 ? '' : String(summary.lowStock + summary.outOfStock)}
+              sub={products.length === 0 ? '' : `${summary.outOfStock} out · ${summary.lowStock} low`}
               tone={stockTone}
-              loading={loading}
+              loading={products.length === 0}
               last
             />
           </div>
@@ -441,8 +456,8 @@ function PosDashboard() {
             <Panel>
               <PanelHead
                 title="Inventory"
-                badge={loading ? null : `${products.length} items`}
-                action={!loading && products.length > 0 ? <span style={{ fontSize: 12, color: T.inkSoft, fontWeight: 500 }}>Showing recent {topProducts.length}</span> : null}
+                badge={products.length === 0 ? null : `${products.length} items`}
+                action={products.length > 0 ? <span style={{ fontSize: 12, color: T.inkSoft, fontWeight: 500 }}>Showing recent {topProducts.length}</span> : null}
               />
 
               <div style={{
@@ -459,7 +474,7 @@ function PosDashboard() {
                 ))}
               </div>
 
-              {loading ? (
+              {products.length === 0 ? (
                 <div style={{ padding: '4px 24px' }}>
                   {[...Array(6)].map((_, i) => (
                     <div key={i} style={{
@@ -534,9 +549,9 @@ function PosDashboard() {
 
             {/* Recent orders */}
             <Panel>
-              <PanelHead title="Recent In-Store Sale" badge={!loading && todayOrders.length > 0 ? `${todayOrders.length} today` : null} />
+              <PanelHead title="Recent In-Store Sale" badge={!salesLoading && todayOrders.length > 0 ? `${todayOrders.length} today` : null} />
 
-              {loading ? (
+              {salesLoading ? (
                 <div style={{ padding: '4px 24px' }}>
                   {[...Array(5)].map((_, i) => (
                     <div key={i} style={{

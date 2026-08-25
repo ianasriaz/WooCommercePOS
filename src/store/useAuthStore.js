@@ -40,11 +40,20 @@ export const useAuthStore = create(
             .from('licenses')
             .select('*')
             .eq('license_key', key)
-            .single();
+            .maybeSingle();
 
           if (error) {
             console.error('Supabase Login Error:', error);
-            set({ error: `Error: ${error.message || error.details || 'Invalid key'}`, isLoading: false });
+            const isNetworkError = !error.code && /fetch|network|failed to connect|timeout/i.test(error.message || '');
+            const message = isNetworkError
+              ? 'We could not connect to the licensing service. Check your internet connection and try again.'
+              : 'The licensing service is temporarily unavailable. Please try again shortly.';
+            set({ error: message, isLoading: false });
+            return false;
+          }
+
+          if (!data) {
+            set({ error: 'The license key is invalid. Check the key and try again.', isLoading: false });
             return false;
           }
 
@@ -68,7 +77,8 @@ export const useAuthStore = create(
           }));
           return true;
         } catch (err) {
-          set({ error: 'An unexpected error occurred.', isLoading: false });
+          console.error('Unexpected license login error:', err);
+          set({ error: 'We could not complete sign-in. Please try again shortly.', isLoading: false });
           return false;
         }
       },
