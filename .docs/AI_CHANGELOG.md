@@ -69,3 +69,23 @@ No application logic in [src](../src) was modified during this documentation pha
 ### Verification Performed
 - Validated date calculation logic against timezone boundaries.
 - Verified build compatibility with Vite.
+
+## [2026-08-25] Enterprise Dashboard UI/UX Enhancements (Shopify & Lightspeed Patterns)
+
+### What changed
+- **Interactive Order Inspection Drawer (Shopify POS Inspired)**: Cashiers can now click any order in "Recent Sales" to slide out a full-height inspection drawer showing customer info, line items, payment breakdown, and direct 1-click **[Print Receipt]** and **[WP Admin]** triggers.
+- **Visual Inventory with 36px Thumbnails & SKU Badging (Lightspeed Inspired)**: Added product thumbnail avatars with graceful fallbacks, explicit SKU pills, and category labels to distinguish identical parent products in high-volume catalogs.
+- **Zero-Latency Real-Time Catalog Search & Filter**: Integrated instant in-memory search box and status tabs (`All`, `In Stock`, `Low`, `Out`) over 1.9k+ cached products.
+- **Register Shift & Payment Method Breakdown (Toast Inspired)**: Added a Register Shift float status strip (`Register #1 Active · Cash Float: Rs 22,500`) and payment breakdowns (`Cash` vs `Bank Transfer`).
+- **Live Sync Heartbeat Badge**: Embedded an active status badge in the dashboard header with gentle pulse animation indicating real-time sync connectivity.
+
+### Why
+- Provides retail cashiers with frictionless order lookup and receipt reprinting.
+- Elevates the visual density and usability for large catalog stores.
+
+### Files Touched
+- `src/pages/PosDashboard.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Validated component compilation and Vite production build.
