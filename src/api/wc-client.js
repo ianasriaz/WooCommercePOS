@@ -7,6 +7,29 @@ const wcClient = axios.create({
   },
 });
 
+export const POS_ORDER_CREATED_EVENT = 'pos-order-created';
+
+const notifyPosOrderCreated = (order) => {
+  const message = {
+    type: POS_ORDER_CREATED_EVENT,
+    orderId: order?.id ?? null,
+    createdAt: Date.now(),
+  };
+
+  try {
+    window.dispatchEvent(new CustomEvent(POS_ORDER_CREATED_EVENT, { detail: message }));
+    window.localStorage.setItem(POS_ORDER_CREATED_EVENT, JSON.stringify(message));
+    window.localStorage.removeItem(POS_ORDER_CREATED_EVENT);
+    if ('BroadcastChannel' in window) {
+      const channel = new BroadcastChannel(POS_ORDER_CREATED_EVENT);
+      channel.postMessage(message);
+      channel.close();
+    }
+  } catch {
+    // Notifications are an optimization; polling remains the fallback.
+  }
+};
+
 wcClient.interceptors.request.use((config) => {
   const { storeUrl, wcConsumerKey, wcConsumerSecret } = useAuthStore.getState();
   
@@ -197,6 +220,7 @@ export const createPosOrder = async (cartItems, customerDetails = {}, paymentOpt
 
   try {
     const response = await wcClient.post('/wc/v3/orders', payload);
+      notifyPosOrderCreated(response.data);
     return response.data;
   } catch (error) {
     const apiMessage =
@@ -228,6 +252,7 @@ export const fetchTodaysSales = async () => {
     status: 'processing,completed',
     per_page: 100,
     page: 1,
+    _pos_refresh: Date.now(),
     _fields: 'id,total,date_created,status,line_items,payment_method,payment_method_title,created_via',
   };
   const firstResponse = await wcClient.get('/wc/v3/orders', { params });

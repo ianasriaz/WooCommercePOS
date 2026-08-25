@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchProducts, fetchTodaysSales } from '../api/wc-client';
+import { fetchProducts, fetchTodaysSales, POS_ORDER_CREATED_EVENT } from '../api/wc-client';
 import { usePosStore } from '../store/usePosStore';
 import Layout from '../components/Layout';
 import BarcodeGeneratorModal from '../components/BarcodeGeneratorModal';
@@ -276,6 +276,26 @@ function PosDashboard() {
       }
     };
 
+    const refreshAfterPosOrder = async () => {
+      // WooCommerce may need a moment to commit the order before it appears in GET /orders.
+      for (const delay of [0, 750, 1500]) {
+        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+        if (!alive) return;
+        await fetchSales();
+      }
+    };
+
+    const handlePosOrderCreated = () => refreshAfterPosOrder();
+    const handleStorage = (event) => {
+      if (event.key === POS_ORDER_CREATED_EVENT && event.newValue) handlePosOrderCreated();
+    };
+    const orderChannel = 'BroadcastChannel' in window
+      ? new BroadcastChannel(POS_ORDER_CREATED_EVENT)
+      : null;
+    orderChannel?.addEventListener('message', handlePosOrderCreated);
+    window.addEventListener(POS_ORDER_CREATED_EVENT, handlePosOrderCreated);
+    window.addEventListener('storage', handleStorage);
+
     // Poll every 60 seconds instead of 5 to reduce server load
     const interval = setInterval(fetchSales, 60000);
     
@@ -291,6 +311,9 @@ function PosDashboard() {
       alive = false; 
       clearInterval(interval); 
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      orderChannel?.close();
+      window.removeEventListener(POS_ORDER_CREATED_EVENT, handlePosOrderCreated);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
