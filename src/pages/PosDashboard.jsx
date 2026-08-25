@@ -271,8 +271,13 @@ function PosDashboard() {
       try {
         const sales = await fetchTodaysSales();
         if (alive) setTodayOrders(sales);
-      } catch {
-        // Silently ignore background polling errors
+      } catch (error) {
+        if (alive) {
+          const status = error?.response?.status;
+          setDashboardError(status === 401 || status === 403
+            ? 'WooCommerce rejected order access. Verify the API key has Read permission.'
+            : 'Unable to refresh sales data. Check the connection and try again.');
+        }
       }
     };
 

@@ -249,7 +249,9 @@ export const fetchTodaysSales = async () => {
   const params = {
     after: startOfDay.toISOString(),
     before: endOfDay.toISOString(),
-    status: 'processing,completed',
+    status: 'any',
+    orderby: 'date',
+    order: 'desc',
     per_page: 100,
     page: 1,
     _pos_refresh: Date.now(),
@@ -264,7 +266,7 @@ export const fetchTodaysSales = async () => {
     orders.push(...response.data);
   }
 
-  return orders;
+  return orders.filter((order) => ['processing', 'completed'].includes(order.status));
 };
 
 export const fetchRecentOrders = async () => {
