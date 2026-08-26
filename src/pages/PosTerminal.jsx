@@ -5,6 +5,7 @@ import ReceiptModal from '../components/ReceiptModal';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { formatOrderDate, formatOrderTime } from '../utils/date-utils';
 
 /* ─── Design tokens — shared with PosDashboard ─────────────── */
 const T = {
@@ -725,23 +726,21 @@ function PosTerminal() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px', height: 60, gap: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
             background: 'linear-gradient(135deg, #16a34a 0%, #10b981 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff',
-            boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)'
+            boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)', flexShrink: 0
           }}>
             <IcoScan s={18} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: T.ink, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              POS Terminal
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.accent, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
-              {storeName || 'Store Disconnected'}
-            </span>
-          </div>
+          <span style={{
+            fontSize: 17, fontWeight: 800, color: T.ink,
+            letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1
+          }}>
+            {storeName || 'POS Store'}
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
@@ -977,6 +976,20 @@ function PosTerminal() {
                             </p>
                             <StockBadge q={product.stock_quantity} manages={product.manage_stock} status={product.stock_status} />
                           </div>
+
+                          {product.date_created && (
+                            <p style={{
+                              fontSize: 10.5,
+                              color: T.inkFaint,
+                              margin: 0,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              fontFamily: T.sans,
+                            }}>
+                              Added {formatOrderDate(product.date_created)} · {formatOrderTime(product.date_created)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
