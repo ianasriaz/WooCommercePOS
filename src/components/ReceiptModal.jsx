@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { formatOrderDateTime } from '../utils/date-utils';
 
 const currencyFormatter = new Intl.NumberFormat('en-PK', {
   style: 'currency',
@@ -8,13 +9,7 @@ const currencyFormatter = new Intl.NumberFormat('en-PK', {
 
 const formatPkr = (value) => currencyFormatter.format(Number.parseFloat(value) || 0);
 
-const formatDateTime = (value) => {
-  const date = value ? new Date(value) : new Date();
-  return new Intl.DateTimeFormat('en-PK', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-};
+const formatDateTime = (value) => formatOrderDateTime(value);
 
 const getLineItems = (orderData) => orderData?.line_items || orderData?.items || [];
 

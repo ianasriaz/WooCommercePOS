@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 import { fetchProducts, fetchTodaysSales, POS_ORDER_CREATED_EVENT } from '../api/wc-client';
 import { usePosStore } from '../store/usePosStore';
 import { useAuthStore } from '../store/useAuthStore';
+import {
+  parseOrderDate,
+  isOrderFromToday,
+  formatOrderDate,
+  formatOrderTime,
+  formatOrderDateTime,
+} from '../utils/date-utils';
 import Layout from '../components/Layout';
 import BarcodeGeneratorModal from '../components/BarcodeGeneratorModal';
 import ReceiptModal from '../components/ReceiptModal';
@@ -34,11 +41,8 @@ const pkrFormatter = new Intl.NumberFormat('en-PK', {
 });
 const formatPkr = (v) => pkrFormatter.format(Number.parseFloat(v) || 0);
 
-const fmtDate = (d) =>
-  d.toLocaleDateString('en-PK', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-
-const fmtTime = (d) =>
-  d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' });
+const fmtDate = (d) => formatOrderDate(d);
+const fmtTime = (d) => formatOrderTime(d);
 
 /* ─── Inline SVG icons ─────────────────────────────────────── */
 const Svg = ({ children, size = 16, strokeWidth = '1.6' }) => (
@@ -265,31 +269,13 @@ function PosDashboard() {
 
     reconcilePosOrders(serverOrders);
 
-    const now = new Date();
-    const todayYear = now.getFullYear();
-    const todayMonth = now.getMonth();
-    const todayDate = now.getDate();
-
     const mergedList = Array.from(orderMap.values()).filter((order) => {
-      const dateStr = order.date_created || order.date_created_gmt;
-      if (!dateStr) return true;
-      const orderDate = new Date(dateStr);
-      if (Number.isNaN(orderDate.getTime())) return true;
-
-      const isSameDay =
-        orderDate.getFullYear() === todayYear &&
-        orderDate.getMonth() === todayMonth &&
-        orderDate.getDate() === todayDate;
-
-      if (isSameDay) return true;
-
-      const timeDiffMs = now.getTime() - orderDate.getTime();
-      return timeDiffMs >= 0 && timeDiffMs <= 24 * 60 * 60 * 1000;
+      return isOrderFromToday(order);
     });
 
     return mergedList.sort((a, b) => {
-      const dateA = new Date(a.date_created || a.date_created_gmt || 0).getTime();
-      const dateB = new Date(b.date_created || b.date_created_gmt || 0).getTime();
+      const dateA = parseOrderDate(a)?.getTime() || 0;
+      const dateB = parseOrderDate(b)?.getTime() || 0;
       return dateB - dateA;
     });
   }, [posOrders, reconcilePosOrders]);
@@ -398,10 +384,12 @@ function PosDashboard() {
 
       if (order?.id) {
         confirmedOrdersRef.current.set(order.id, order);
-        setTodayOrders((currentOrders) => [
-          order,
-          ...currentOrders.filter((currentOrder) => currentOrder.id !== order.id),
-        ]);
+        if (isOrderFromToday(order)) {
+          setTodayOrders((currentOrders) => [
+            order,
+            ...currentOrders.filter((currentOrder) => currentOrder.id !== order.id),
+          ]);
+        }
         setDashboardError('');
       }
 
@@ -976,9 +964,9 @@ function PosDashboard() {
                             }}>
                               {formatPkr(order.total)}
                             </div>
-                            {order.date_created && (
+                            {(order.date_created || order.date_created_gmt) && (
                               <div style={{ fontSize: 10.5, color: T.inkFaint, marginTop: 1 }}>
-                                {fmtTime(new Date(order.date_created))}
+                                {fmtTime(order)}
                               </div>
                             )}
                           </div>
@@ -1028,7 +1016,7 @@ function PosDashboard() {
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 4 }}>
-                  {selectedOrder.date_created ? fmtDate(new Date(selectedOrder.date_created)) + ' at ' + fmtTime(new Date(selectedOrder.date_created)) : '—'}
+                  {selectedOrder.date_created || selectedOrder.date_created_gmt ? `${fmtDate(selectedOrder)} at ${fmtTime(selectedOrder)}` : '—'}
                 </div>
               </div>
               <button

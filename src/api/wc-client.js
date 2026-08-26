@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
+import { isOrderFromToday } from '../utils/date-utils';
 
 const wcClient = axios.create({
   headers: {
@@ -246,7 +247,7 @@ export const createPosOrder = async (cartItems, customerDetails = {}, paymentOpt
 
 export const fetchTodaysSales = async () => {
   // Fetch latest orders sorted newest first (per_page 100)
-  // Timezone resilience: Filter on client side so WordPress server vs browser timezone mismatches never break the query.
+  // Timezone resilience: Filter on client side using IANA timezone detection so WordPress server vs client timezone differences are always handled accurately.
   const params = {
     status: 'any',
     orderby: 'date',
@@ -260,40 +261,12 @@ export const fetchTodaysSales = async () => {
   const response = await wcClient.get('/wc/v3/orders', { params });
   const allOrders = Array.isArray(response.data) ? response.data : [];
 
-  const now = new Date();
-  const todayYear = now.getFullYear();
-  const todayMonth = now.getMonth();
-  const todayDate = now.getDate();
-
   // Valid revenue-generating order statuses (excluding cancelled, refunded, failed, trash)
   const validStatuses = new Set(['completed', 'processing', 'on-hold', 'pending']);
 
   const filteredOrders = allOrders.filter((order) => {
     if (!validStatuses.has(order.status)) return false;
-
-    const dateStr = order.date_created || order.date_created_gmt;
-    if (!dateStr) return false;
-
-    const orderDate = new Date(dateStr);
-    if (Number.isNaN(orderDate.getTime())) return false;
-
-    // 1. Check if same calendar day locally
-    const isSameDay =
-      orderDate.getFullYear() === todayYear &&
-      orderDate.getMonth() === todayMonth &&
-      orderDate.getDate() === todayDate;
-
-    if (isSameDay) return true;
-
-    // 2. Check if created within last 24h and matches date either locally or in UTC
-    const timeDiffMs = now.getTime() - orderDate.getTime();
-    if (timeDiffMs >= 0 && timeDiffMs <= 24 * 60 * 60 * 1000) {
-      if (orderDate.getUTCDate() === now.getUTCDate() || orderDate.getDate() === todayDate) {
-        return true;
-      }
-    }
-
-    return false;
+    return isOrderFromToday(order);
   });
 
   return filteredOrders;
