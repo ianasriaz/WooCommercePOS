@@ -41,8 +41,11 @@ export default function BarcodeGeneratorModal({ onClose }) {
   const markBarcodesPrinted = usePosStore((state) => state.markBarcodesPrinted);
   const unmarkBarcodesPrinted = usePosStore((state) => state.unmarkBarcodesPrinted);
 
+  const variationsCache = usePosStore((state) => state.variationsCache || {});
+  const cacheVariations = usePosStore((state) => state.cacheVariations);
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCatId, setSelectedCatId] = useState('all');
+  const [selectedCatId, setSelectedCatId] = useState(null); // null by default - user selects category
   const [activeTab, setActiveTab] = useState('missing'); // 'missing' | 'ready' | 'printed'
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 30;
@@ -50,11 +53,19 @@ export default function BarcodeGeneratorModal({ onClose }) {
   const [loadedVariations, setLoadedVariations] = useState({});
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [generationProgress, setGenerationProgress] = useState('');
+  const [isLoadingCategorySizes, setIsLoadingCategorySizes] = useState(false);
   
   const [selectedMissing, setSelectedMissing] = useState(new Set());
   const [selectedReady, setSelectedReady] = useState(new Set());
   const [selectedPrinted, setSelectedPrinted] = useState(new Set());
   const [printQty, setPrintQty] = useState({});
+
+  // Sync variations from local IndexedDB cache
+  useEffect(() => {
+    if (variationsCache && Object.keys(variationsCache).length > 0) {
+      setLoadedVariations(prev => ({ ...variationsCache, ...prev }));
+    }
+  }, [variationsCache]);
 
   const categories = useMemo(() => {
     const catMap = new Map();
@@ -71,17 +82,12 @@ export default function BarcodeGeneratorModal({ onClose }) {
     return Array.from(catMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [products]);
 
-  const [loadingCategoryVars, setLoadingCategoryVars] = useState(false);
-  const [loadingVarsStats, setLoadingVarsStats] = useState({ loaded: 0, total: 0 });
-  const loadedVariationsRef = useRef(loadedVariations);
-  
-  useEffect(() => {
-    loadedVariationsRef.current = loadedVariations;
-  }, [loadedVariations]);
-  
   const visibleBaseProducts = useMemo(() => {
+    if (selectedCatId === null && !searchTerm.trim()) {
+      return [];
+    }
     let filtered = products;
-    if (selectedCatId !== 'all') {
+    if (selectedCatId && selectedCatId !== 'all') {
       filtered = filtered.filter(p => p.categories?.some(c => c.id === selectedCatId));
     }
     if (searchTerm.trim()) {
@@ -103,38 +109,37 @@ export default function BarcodeGeneratorModal({ onClose }) {
     return visibleBaseProducts.slice(0, page * ITEMS_PER_PAGE);
   }, [visibleBaseProducts, page]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadVars = async () => {
-      const variableProducts = paginatedBaseProducts.filter(p => isVariableProduct(p) && !loadedVariationsRef.current[p.id]);
-      if (variableProducts.length === 0) return;
-      
-      setLoadingCategoryVars(true);
-      setLoadingVarsStats({ loaded: 0, total: variableProducts.length });
-      const CONCURRENCY = 4;
-      let i = 0;
-      
+  // Explicit user-triggered sizes/variations loader for the active category
+  const handleLoadSizesForActiveView = async () => {
+    const variableProducts = paginatedBaseProducts.filter(p => isVariableProduct(p) && !loadedVariations[p.id]);
+    if (variableProducts.length === 0) return;
+    
+    setIsLoadingCategorySizes(true);
+    const CONCURRENCY = 3;
+    let i = 0;
+    
+    try {
       while (i < variableProducts.length) {
-        if (!isMounted) break;
         const chunk = variableProducts.slice(i, i + CONCURRENCY);
-        const promises = chunk.map(p => fetchVariations(p.id).then(vars => ({ id: p.id, vars })).catch(() => ({ id: p.id, vars: [] })));
-        const results = await Promise.all(promises);
+        const promises = chunk.map(p => fetchVariations(p.id).then(vars => {
+          if (cacheVariations && Array.isArray(vars)) {
+            cacheVariations(p.id, vars);
+          }
+          return { id: p.id, vars };
+        }).catch(() => ({ id: p.id, vars: [] })));
         
-        if (isMounted) {
-          setLoadedVariations(prev => {
-            const next = { ...prev };
-            results.forEach(r => next[r.id] = r.vars);
-            return next;
-          });
-          setLoadingVarsStats(prev => ({ ...prev, loaded: prev.loaded + results.length }));
-        }
+        const results = await Promise.all(promises);
+        setLoadedVariations(prev => {
+          const next = { ...prev };
+          results.forEach(r => next[r.id] = r.vars);
+          return next;
+        });
         i += CONCURRENCY;
       }
-      if (isMounted) setLoadingCategoryVars(false);
-    };
-    loadVars();
-    return () => { isMounted = false; };
-  }, [paginatedBaseProducts]);
+    } finally {
+      setIsLoadingCategorySizes(false);
+    }
+  };
 
   const flattenedItems = useMemo(() => {
     const items = [];
@@ -408,13 +413,24 @@ export default function BarcodeGeneratorModal({ onClose }) {
 
             {/* Toolbar */}
             <div className="barcode-toolbar" style={{ padding: '12px 16px', borderBottom: `1px solid ${T.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: T.surfaceHover, gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <Checkbox checked={getCurrentViewItems().length > 0 && getCurrentSelection().size === getCurrentViewItems().filter(i => !i.isLoading).length} onChange={toggleSelectAll} />
                 <span style={{ fontSize: 12.5, color: T.ink, fontWeight: 600 }}>Select All ({getCurrentSelection().size})</span>
-                {loadingCategoryVars && (
-                  <span style={{ fontSize: 11.5, color: T.inkSoft, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <IcoLoader s={11}/> Loading ({loadingVarsStats.loaded}/{loadingVarsStats.total})...
-                  </span>
+                
+                {paginatedBaseProducts.some(p => isVariableProduct(p) && !loadedVariations[p.id]) && (
+                  <button
+                    type="button"
+                    onClick={handleLoadSizesForActiveView}
+                    disabled={isLoadingCategorySizes}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+                      background: T.surface, border: `1px solid ${T.line}`, borderRadius: 6,
+                      fontSize: 11.5, fontWeight: 600, color: T.inkSoft, cursor: 'pointer',
+                    }}
+                  >
+                    {isLoadingCategorySizes ? <IcoLoader s={11} /> : null}
+                    {isLoadingCategorySizes ? 'Loading Sizes...' : 'Load All Sizes in Category'}
+                  </button>
                 )}
               </div>
               
@@ -423,7 +439,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
                   <button onClick={handleGenerateSelected} disabled={selectedMissing.size === 0 || isGeneratingBulk} style={{
                     display: 'flex', alignItems: 'center', gap: 6, background: selectedMissing.size > 0 ? T.accent : T.line, border: 'none', color: selectedMissing.size > 0 ? '#fff' : T.inkSoft, padding: '7px 14px', borderRadius: 7, fontSize: 12.5, cursor: selectedMissing.size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
                   }}>
-                    {isGeneratingBulk ? <IcoLoader s={13} /> : <IcoWand s={13} />} {isGeneratingBulk ? (generationProgress || 'Generating...') : 'Auto-Generate Selected'}
+                    {isGeneratingBulk ? <IcoLoader s={13} /> : <IcoWand s={13} />} {isGeneratingBulk ? (generationProgress || 'Generating...') : 'Start Generate Selected'}
                   </button>
                 )}
 
@@ -550,10 +566,43 @@ export default function BarcodeGeneratorModal({ onClose }) {
               </div>
 
               {getCurrentViewItems().length === 0 && (
-                <div style={{ textAlign: 'center', padding: '50px 16px', color: T.inkSoft, fontSize: 13 }}>
-                  {activeTab === 'missing' && 'All products in this view have barcodes!'}
-                  {activeTab === 'ready' && 'No barcodes ready to print for this view.'}
-                  {activeTab === 'printed' && 'No barcodes have been printed yet.'}
+                <div style={{ textAlign: 'center', padding: '60px 16px', color: T.inkSoft, fontSize: 13 }}>
+                  {selectedCatId === null && !searchTerm.trim() ? (
+                    <div style={{ maxWidth: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: T.lineSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.inkSoft }}>
+                        <IcoFolder s={20} />
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>Select a Category</div>
+                      <p style={{ margin: 0, fontSize: 12.5, color: T.inkSoft, lineHeight: 1.4 }}>
+                        Choose a specific category or search for products to view items and generate barcodes efficiently without server strain.
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCatId('all')}
+                          style={{ background: T.surfaceHover, border: `1px solid ${T.line}`, padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, color: T.ink, cursor: 'pointer' }}
+                        >
+                          All Products ({products.length})
+                        </button>
+                        {categories.slice(0, 4).map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setSelectedCatId(c.id)}
+                            style={{ background: T.surfaceHover, border: `1px solid ${T.line}`, padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, color: T.ink, cursor: 'pointer' }}
+                          >
+                            {c.name} ({c.count})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {activeTab === 'missing' && 'All products in this category have barcodes!'}
+                      {activeTab === 'ready' && 'No barcodes ready to print for this view.'}
+                      {activeTab === 'printed' && 'No barcodes have been printed yet.'}
+                    </>
+                  )}
                 </div>
               )}
               
