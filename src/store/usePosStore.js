@@ -149,6 +149,10 @@ export const usePosStore = create(
         variationsCache: { ...state.variationsCache, [productId]: variations }
       })),
 
+      cacheVariations: (productId, variations) => set((state) => ({
+        variationsCache: { ...state.variationsCache, [productId]: variations }
+      })),
+
       markBarcodesPrinted: (skus) => set((state) => ({
         printedBarcodes: Array.from(new Set([...state.printedBarcodes, ...skus]))
       })),
@@ -244,6 +248,7 @@ export const usePosStore = create(
       partialize: (state) => ({
         products: state.products,
         cart: state.cart,
+        variationsCache: state.variationsCache,
         printedBarcodes: state.printedBarcodes,
         posOrders: state.posOrders,
         lastSyncTimestamp: state.lastSyncTimestamp,
