@@ -84,23 +84,21 @@ export default function Layout({ children }) {
         padding: '0 24px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40,
       }}>
         {/* Left: Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
             background: 'linear-gradient(135deg, #16a34a 0%, #10b981 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff',
-            boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)'
+            boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)', flexShrink: 0
           }}>
             <IcoScan size={18} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              POINT OF SALE
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
-              {storeName || 'Store Disconnected'}
-            </span>
-          </div>
+          <span style={{
+            fontSize: 17, fontWeight: 800, color: '#0f172a',
+            letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1
+          }}>
+            {storeName || 'POS Store'}
+          </span>
         </div>
 
 
