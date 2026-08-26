@@ -19,16 +19,17 @@ const IcoLoader = ({ s = 14 }) => <div style={{ width: s, height: s, border: '2p
 
 // Light Mode Theme (Matches POS Terminal)
 const T = {
-  bg: '#f1f5f9',          // Overall backdrop
-  surface: '#ffffff',     // Cards / modals
-  surfaceHover: '#f8fafc',// Hover states
-  line: '#e2e8f0',        // Borders
-  lineSoft: '#f1f5f9',    // Light borders / badges
-  ink: '#0f172a',         // Primary text
-  inkSoft: '#64748b',     // Secondary text
-  accent: '#0f172a',      // Primary button color (matching dark accents in light mode POS)
-  accentSoft: '#334155',  // Hover for primary button
-  danger: '#ef4444',      // Destructive actions
+  bg: '#f1f5f9',
+  surface: '#ffffff',
+  surfaceHover: '#f8fafc',
+  line: '#e2e8f0',
+  lineSoft: '#f1f5f9',
+  ink: '#0f172a',
+  inkSoft: '#64748b',
+  accent: '#0f172a',
+  accentSoft: '#334155',
+  accentGreen: '#16a34a',
+  danger: '#ef4444',
   sans: 'Inter, system-ui, sans-serif',
 };
 
@@ -41,7 +42,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
   const unmarkBarcodesPrinted = usePosStore((state) => state.unmarkBarcodesPrinted);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCatId, setSelectedCatId] = useState(null);
+  const [selectedCatId, setSelectedCatId] = useState('all');
   const [activeTab, setActiveTab] = useState('missing'); // 'missing' | 'ready' | 'printed'
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 30;
@@ -269,7 +270,7 @@ export default function BarcodeGeneratorModal({ onClose }) {
       setTimeout(() => {
         markBarcodesPrinted(itemsToMark);
         setSelectedReady(new Set());
-      }, 500); // Small delay to let print dialog open before UI shift
+      }, 500);
     }
   };
 
@@ -286,181 +287,279 @@ export default function BarcodeGeneratorModal({ onClose }) {
   });
 
   const Checkbox = ({ checked, onChange }) => (
-    <div onClick={onChange} style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? T.accent : '#cbd5e1'}`, background: checked ? T.accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.1s' }}>
-      {checked && <IcoCheck s={12} color="#fff" />}
+    <div onClick={onChange} style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${checked ? T.accent : '#cbd5e1'}`, background: checked ? T.accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.1s', flexShrink: 0 }}>
+      {checked && <IcoCheck s={13} color="#fff" />}
     </div>
   );
 
   return (
     <div className="barcode-modal-overlay" style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.4)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)'
+      position: 'fixed', inset: 0,
+      background: 'rgba(15, 23, 42, 0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)',
+      padding: '0',
     }}>
-      <div className="no-print" style={{
-        background: T.surface, width: '100%', maxWidth: 1100, height: '85vh', borderRadius: 16,
+      <div className="no-print barcode-modal-card" style={{
+        background: T.surface, width: '100%', maxWidth: 1100, height: '90vh',
         border: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
       }}>
         {/* Header */}
-        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surface }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surface }}>
           <div>
-            <h2 style={{ margin: 0, color: T.ink, fontSize: 18, fontWeight: 700 }}>Barcode Studio</h2>
-            <p style={{ margin: '4px 0 0', color: T.inkSoft, fontSize: 13 }}>Generate and print EAN-13 barcodes for your entire catalog efficiently.</p>
+            <h2 style={{ margin: 0, color: T.ink, fontSize: 16, fontWeight: 700 }}>Barcode Studio</h2>
+            <p style={{ margin: '2px 0 0', color: T.inkSoft, fontSize: 12 }} className="desktop-only-text">Generate & print EAN-13 barcodes for your catalog.</p>
           </div>
-          <button onClick={onClose} style={{ background: T.surfaceHover, border: `1px solid ${T.line}`, color: T.inkSoft, width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.1s' }}>
-            <IcoX />
+          <button onClick={onClose} style={{ background: T.surfaceHover, border: `1px solid ${T.line}`, color: T.inkSoft, width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.1s' }}>
+            <IcoX s={16} />
           </button>
         </div>
 
+        {/* Mobile Filter Bar (Search + Horizontal Category Pills) */}
+        <div className="mobile-filter-strip" style={{ padding: '10px 14px', borderBottom: `1px solid ${T.line}`, background: T.surfaceHover, display: 'none', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, padding: '0 10px', height: 36 }}>
+            <div style={{ color: T.inkSoft }}><IcoSearch s={14} /></div>
+            <input
+              type="text" placeholder="Search by name or SKU..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              style={{ background: 'transparent', border: 'none', color: T.ink, outline: 'none', flex: 1, fontSize: 13 }}
+            />
+            {searchTerm && (
+              <button type="button" onClick={() => setSearchTerm('')} style={{ background: 'transparent', border: 'none', color: T.inkSoft, cursor: 'pointer', padding: 2 }}>
+                <IcoX s={12} />
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedCatId('all')}
+              style={{
+                whiteSpace: 'nowrap', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                background: selectedCatId === 'all' ? T.ink : T.surface, color: selectedCatId === 'all' ? '#ffffff' : T.inkSoft,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)', flexShrink: 0,
+              }}
+            >
+              All ({products.length})
+            </button>
+            {categories.map(c => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setSelectedCatId(c.id)}
+                style={{
+                  whiteSpace: 'nowrap', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                  background: selectedCatId === c.id ? T.ink : T.surface, color: selectedCatId === c.id ? '#ffffff' : T.inkSoft,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)', flexShrink: 0,
+                }}
+              >
+                {c.name} ({c.count})
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          {/* Left Sidebar: Categories */}
-          <div style={{ width: 280, borderRight: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', background: T.surfaceHover }}>
-            <div style={{ padding: 16, borderBottom: `1px solid ${T.line}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, padding: '0 12px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+          {/* Desktop Left Sidebar: Categories */}
+          <div className="desktop-sidebar" style={{ width: 260, borderRight: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', background: T.surfaceHover }}>
+            <div style={{ padding: 14, borderBottom: `1px solid ${T.line}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, padding: '0 10px', height: 36, boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
                 <div style={{ color: T.inkSoft }}><IcoSearch s={14} /></div>
                 <input
                   type="text" placeholder="Search products..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                  style={{ background: 'transparent', border: 'none', color: T.ink, padding: '12px 0', outline: 'none', flex: 1, fontSize: 13 }}
+                  style={{ background: 'transparent', border: 'none', color: T.ink, outline: 'none', flex: 1, fontSize: 13 }}
                 />
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: T.inkSoft, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, paddingLeft: 8 }}>Categories</div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.inkSoft, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, paddingLeft: 6 }}>Categories</div>
               <div
                 onClick={() => setSelectedCatId('all')}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', background: selectedCatId === 'all' ? T.line : 'transparent', color: selectedCatId === 'all' ? T.ink : T.inkSoft, transition: 'all 0.1s' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 7, cursor: 'pointer', background: selectedCatId === 'all' ? T.line : 'transparent', color: selectedCatId === 'all' ? T.ink : T.inkSoft, transition: 'all 0.1s' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500 }}><IcoFolder s={14} /> All Products</div>
-                <div style={{ background: selectedCatId === 'all' ? '#fff' : T.line, color: T.ink, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 12 }}>{products.length}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500 }}><IcoFolder s={14} /> All Products</div>
+                <div style={{ background: selectedCatId === 'all' ? '#fff' : T.line, color: T.ink, fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 10 }}>{products.length}</div>
               </div>
               {categories.map(c => (
                 <div
                   key={c.id}
                   onClick={() => setSelectedCatId(c.id)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', background: selectedCatId === c.id ? T.line : 'transparent', color: selectedCatId === c.id ? T.ink : T.inkSoft, marginTop: 4, transition: 'all 0.1s' }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 7, cursor: 'pointer', background: selectedCatId === c.id ? T.line : 'transparent', color: selectedCatId === c.id ? T.ink : T.inkSoft, marginTop: 3, transition: 'all 0.1s' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500 }}><IcoFolder s={14} /> {c.name}</div>
-                  <div style={{ background: selectedCatId === c.id ? '#fff' : T.line, color: T.ink, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 12 }}>{c.count}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500 }}><IcoFolder s={14} /> {c.name}</div>
+                  <div style={{ background: selectedCatId === c.id ? '#fff' : T.line, color: T.ink, fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 10 }}>{c.count}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Right Main Area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.surface }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.surface, minWidth: 0 }}>
             {/* Tabs */}
             <div style={{ display: 'flex', borderBottom: `1px solid ${T.line}`, background: T.surface }}>
-              <div onClick={() => setActiveTab('missing')} style={{ flex: 1, padding: 16, textAlign: 'center', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: activeTab === 'missing' ? T.ink : T.inkSoft, borderBottom: activeTab === 'missing' ? `2px solid ${T.accent}` : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.1s' }}>
-                Needs Barcode <span style={{ background: activeTab === 'missing' ? T.accent : T.line, color: activeTab === 'missing' ? '#fff' : T.ink, padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>{missingItems.length}</span>
+              <div onClick={() => setActiveTab('missing')} style={{ flex: 1, padding: '12px 6px', textAlign: 'center', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: activeTab === 'missing' ? T.ink : T.inkSoft, borderBottom: activeTab === 'missing' ? `2px solid ${T.accent}` : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.1s' }}>
+                Needs SKU <span style={{ background: activeTab === 'missing' ? T.accent : T.line, color: activeTab === 'missing' ? '#fff' : T.ink, padding: '2px 6px', borderRadius: 10, fontSize: 11 }}>{missingItems.length}</span>
               </div>
-              <div onClick={() => setActiveTab('ready')} style={{ flex: 1, padding: 16, textAlign: 'center', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: activeTab === 'ready' ? T.ink : T.inkSoft, borderBottom: activeTab === 'ready' ? `2px solid ${T.accent}` : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.1s' }}>
-                Ready to Print <span style={{ background: activeTab === 'ready' ? T.accent : T.line, color: activeTab === 'ready' ? '#fff' : T.ink, padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>{readyItems.length}</span>
+              <div onClick={() => setActiveTab('ready')} style={{ flex: 1, padding: '12px 6px', textAlign: 'center', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: activeTab === 'ready' ? T.ink : T.inkSoft, borderBottom: activeTab === 'ready' ? `2px solid ${T.accent}` : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.1s' }}>
+                Ready to Print <span style={{ background: activeTab === 'ready' ? T.accent : T.line, color: activeTab === 'ready' ? '#fff' : T.ink, padding: '2px 6px', borderRadius: 10, fontSize: 11 }}>{readyItems.length}</span>
               </div>
-              <div onClick={() => setActiveTab('printed')} style={{ flex: 1, padding: 16, textAlign: 'center', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: activeTab === 'printed' ? T.ink : T.inkSoft, borderBottom: activeTab === 'printed' ? `2px solid ${T.accent}` : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.1s' }}>
-                Printed <span style={{ background: activeTab === 'printed' ? T.accent : T.line, color: activeTab === 'printed' ? '#fff' : T.ink, padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>{printedItems.length}</span>
+              <div onClick={() => setActiveTab('printed')} style={{ flex: 1, padding: '12px 6px', textAlign: 'center', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: activeTab === 'printed' ? T.ink : T.inkSoft, borderBottom: activeTab === 'printed' ? `2px solid ${T.accent}` : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.1s' }}>
+                Printed <span style={{ background: activeTab === 'printed' ? T.accent : T.line, color: activeTab === 'printed' ? '#fff' : T.ink, padding: '2px 6px', borderRadius: 10, fontSize: 11 }}>{printedItems.length}</span>
               </div>
             </div>
 
             {/* Toolbar */}
-            <div style={{ padding: '16px 24px', borderBottom: `1px solid ${T.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: T.surfaceHover }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="barcode-toolbar" style={{ padding: '12px 16px', borderBottom: `1px solid ${T.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: T.surfaceHover, gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Checkbox checked={getCurrentViewItems().length > 0 && getCurrentSelection().size === getCurrentViewItems().filter(i => !i.isLoading).length} onChange={toggleSelectAll} />
-                <span style={{ fontSize: 13, color: T.ink, fontWeight: 600 }}>Select All ({getCurrentSelection().size} selected)</span>
+                <span style={{ fontSize: 12.5, color: T.ink, fontWeight: 600 }}>Select All ({getCurrentSelection().size})</span>
                 {loadingCategoryVars && (
-                  <span style={{ fontSize: 12, color: T.inkSoft, display: 'flex', alignItems: 'center', gap: 6, marginLeft: 10 }}>
-                    <IcoLoader s={12}/> Loading sizes ({loadingVarsStats.loaded}/{loadingVarsStats.total})...
+                  <span style={{ fontSize: 11.5, color: T.inkSoft, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <IcoLoader s={11}/> Loading ({loadingVarsStats.loaded}/{loadingVarsStats.total})...
                   </span>
                 )}
               </div>
               
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: 'auto' }}>
                 {activeTab === 'missing' && (
                   <button onClick={handleGenerateSelected} disabled={selectedMissing.size === 0 || isGeneratingBulk} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, background: selectedMissing.size > 0 ? T.accent : T.line, border: 'none', color: selectedMissing.size > 0 ? '#fff' : T.inkSoft, padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: selectedMissing.size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
+                    display: 'flex', alignItems: 'center', gap: 6, background: selectedMissing.size > 0 ? T.accent : T.line, border: 'none', color: selectedMissing.size > 0 ? '#fff' : T.inkSoft, padding: '7px 14px', borderRadius: 7, fontSize: 12.5, cursor: selectedMissing.size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
                   }}>
-                    {isGeneratingBulk ? <IcoLoader s={14} /> : <IcoWand />} {isGeneratingBulk ? (generationProgress || 'Generating...') : 'Auto-Generate Selected'}
+                    {isGeneratingBulk ? <IcoLoader s={13} /> : <IcoWand s={13} />} {isGeneratingBulk ? (generationProgress || 'Generating...') : 'Auto-Generate Selected'}
                   </button>
                 )}
 
                 {activeTab === 'printed' && (
                   <button onClick={handleUnmarkPrinted} disabled={selectedPrinted.size === 0} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, background: selectedPrinted.size > 0 ? '#fff' : T.surfaceHover, border: `1px solid ${T.line}`, color: selectedPrinted.size > 0 ? T.ink : T.inkSoft, padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: selectedPrinted.size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
+                    display: 'flex', alignItems: 'center', gap: 6, background: selectedPrinted.size > 0 ? '#fff' : T.surfaceHover, border: `1px solid ${T.line}`, color: selectedPrinted.size > 0 ? T.ink : T.inkSoft, padding: '7px 14px', borderRadius: 7, fontSize: 12.5, cursor: selectedPrinted.size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
                   }}>
-                    <IcoUndo /> Move back to Ready
+                    <IcoUndo s={13} /> Move to Ready
                   </button>
                 )}
 
                 {(activeTab === 'ready' || activeTab === 'printed') && (
                   <button onClick={handlePrint} disabled={getCurrentSelection().size === 0} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, background: getCurrentSelection().size > 0 ? T.accent : T.line, border: 'none', color: getCurrentSelection().size > 0 ? '#fff' : T.inkSoft, padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: getCurrentSelection().size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
+                    display: 'flex', alignItems: 'center', gap: 6, background: getCurrentSelection().size > 0 ? T.accent : T.line, border: 'none', color: getCurrentSelection().size > 0 ? '#fff' : T.inkSoft, padding: '7px 14px', borderRadius: 7, fontSize: 12.5, cursor: getCurrentSelection().size > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, transition: 'all 0.1s'
                   }}>
-                    <IcoPrint /> Print {itemsToPrint.length} Labels
+                    <IcoPrint s={13} /> Print {itemsToPrint.length} Labels
                   </button>
                 )}
               </div>
             </div>
 
             {/* List Area */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px 24px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: `2px solid ${T.line}`, color: T.inkSoft, fontSize: 12 }}>
-                    <th style={{ padding: '16px 0', width: 40, position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}></th>
-                    <th style={{ padding: '16px 0', fontWeight: 600, position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}>Product Name</th>
-                    {activeTab !== 'missing' && (
-                      <>
-                        <th style={{ padding: '16px 0', fontWeight: 600, position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}>SKU / Barcode</th>
-                        <th style={{ padding: '16px 0', fontWeight: 600, width: 100, textAlign: 'center', position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}>Label Qty</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {getCurrentViewItems().map(item => (
-                    <tr key={item.key} style={{ borderBottom: `1px solid ${T.line}` }}>
-                      <td style={{ padding: '16px 0' }}>
-                        {item.isLoading ? (
-                          <div style={{ color: T.inkSoft }}><IcoLoader s={14} /></div>
-                        ) : (
-                          <Checkbox checked={getCurrentSelection().has(item.key)} onChange={() => toggleSelect(item.key)} />
-                        )}
-                      </td>
-                      <td style={{ padding: '16px 0', color: item.isLoading ? T.inkSoft : T.ink, fontSize: 14, fontWeight: 500 }}>
-                        {item.name}
-                      </td>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+              {/* Desktop Table View */}
+              <div className="desktop-table-container">
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${T.line}`, color: T.inkSoft, fontSize: 12 }}>
+                      <th style={{ padding: '12px 0', width: 36, position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}></th>
+                      <th style={{ padding: '12px 0', fontWeight: 600, position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}>Product Name</th>
                       {activeTab !== 'missing' && (
                         <>
-                          <td style={{ padding: '16px 0' }}>
-                            <span style={{ fontFamily: 'monospace', background: T.surfaceHover, border: `1px solid ${T.line}`, padding: '4px 8px', borderRadius: 6, color: T.ink, fontSize: 13, letterSpacing: '0.05em' }}>{item.sku}</span>
-                          </td>
-                          <td style={{ padding: '16px 0', textAlign: 'center' }}>
-                            <input type="number" min="1" value={printQty[item.key] || 1} onChange={e => updatePrintQty(item.key, e.target.value)} style={{ width: 60, background: '#fff', border: `1px solid ${T.line}`, color: T.ink, padding: '6px', borderRadius: 6, textAlign: 'center', outline: 'none', fontWeight: 500 }} />
-                          </td>
+                          <th style={{ padding: '12px 0', fontWeight: 600, position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}>SKU / Barcode</th>
+                          <th style={{ padding: '12px 0', fontWeight: 600, width: 90, textAlign: 'center', position: 'sticky', top: 0, background: T.surface, zIndex: 10 }}>Label Qty</th>
                         </>
                       )}
                     </tr>
-                  ))}
-                  {getCurrentViewItems().length === 0 && (
-                    <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: '80px 0', color: T.inkSoft }}>
-                        {selectedCatId === null ? (
-                          'Please select a category from the sidebar to view products.'
-                        ) : (
+                  </thead>
+                  <tbody>
+                    {getCurrentViewItems().map(item => (
+                      <tr key={item.key} style={{ borderBottom: `1px solid ${T.line}` }}>
+                        <td style={{ padding: '12px 0' }}>
+                          {item.isLoading ? (
+                            <div style={{ color: T.inkSoft }}><IcoLoader s={14} /></div>
+                          ) : (
+                            <Checkbox checked={getCurrentSelection().has(item.key)} onChange={() => toggleSelect(item.key)} />
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 0', color: item.isLoading ? T.inkSoft : T.ink, fontSize: 13.5, fontWeight: 500 }}>
+                          {item.name}
+                        </td>
+                        {activeTab !== 'missing' && (
                           <>
-                            {activeTab === 'missing' && 'All products in this view have barcodes!'}
-                            {activeTab === 'ready' && 'No barcodes ready to print for this view.'}
-                            {activeTab === 'printed' && 'No barcodes have been printed yet.'}
+                            <td style={{ padding: '12px 0' }}>
+                              <span style={{ fontFamily: 'monospace', background: T.surfaceHover, border: `1px solid ${T.line}`, padding: '3px 7px', borderRadius: 5, color: T.ink, fontSize: 12.5, letterSpacing: '0.05em' }}>{item.sku}</span>
+                            </td>
+                            <td style={{ padding: '12px 0', textAlign: 'center' }}>
+                              <input type="number" min="1" value={printQty[item.key] || 1} onChange={e => updatePrintQty(item.key, e.target.value)} style={{ width: 55, background: '#fff', border: `1px solid ${T.line}`, color: T.ink, padding: '5px', borderRadius: 6, textAlign: 'center', outline: 'none', fontWeight: 500, fontSize: 13 }} />
+                            </td>
                           </>
                         )}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="mobile-cards-container" style={{ display: 'none', flexDirection: 'column', gap: 8 }}>
+                {getCurrentViewItems().map(item => {
+                  const isChecked = getCurrentSelection().has(item.key);
+                  return (
+                    <div
+                      key={item.key}
+                      style={{
+                        background: isChecked ? '#f8fafc' : T.surface,
+                        border: `1px solid ${isChecked ? T.ink : T.line}`,
+                        borderRadius: 9,
+                        padding: '10px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        transition: 'border-color 0.15s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <div style={{ paddingTop: 2 }}>
+                          {item.isLoading ? (
+                            <div style={{ color: T.inkSoft }}><IcoLoader s={14} /></div>
+                          ) : (
+                            <Checkbox checked={isChecked} onChange={() => toggleSelect(item.key)} />
+                          )}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }} onClick={() => !item.isLoading && toggleSelect(item.key)}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, lineHeight: 1.35, wordBreak: 'break-word' }}>
+                            {item.name}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
+                            PKR {Number(item.price || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {activeTab !== 'missing' && !item.isLoading && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, borderTop: `1px solid ${T.lineSoft}`, gap: 8 }}>
+                          <span style={{ fontFamily: 'monospace', background: T.surfaceHover, border: `1px solid ${T.line}`, padding: '3px 8px', borderRadius: 5, color: T.ink, fontSize: 11.5, letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.sku}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11.5, color: T.inkSoft, fontWeight: 500 }}>Qty:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={printQty[item.key] || 1}
+                              onChange={e => updatePrintQty(item.key, e.target.value)}
+                              style={{ width: 48, height: 30, background: '#fff', border: `1px solid ${T.line}`, color: T.ink, borderRadius: 6, textAlign: 'center', outline: 'none', fontWeight: 600, fontSize: 12.5 }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {getCurrentViewItems().length === 0 && (
+                <div style={{ textAlign: 'center', padding: '50px 16px', color: T.inkSoft, fontSize: 13 }}>
+                  {activeTab === 'missing' && 'All products in this view have barcodes!'}
+                  {activeTab === 'ready' && 'No barcodes ready to print for this view.'}
+                  {activeTab === 'printed' && 'No barcodes have been printed yet.'}
+                </div>
+              )}
               
               {visibleBaseProducts.length > page * ITEMS_PER_PAGE && (
-                <div style={{ padding: '24px 0', display: 'flex', justifyContent: 'center' }}>
-                  <button onClick={() => setPage(p => p + 1)} style={{ background: '#fff', border: `1px solid ${T.line}`, color: T.ink, padding: '10px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
+                  <button onClick={() => setPage(p => p + 1)} style={{ background: '#fff', border: `1px solid ${T.line}`, color: T.ink, padding: '9px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                     Load More Products
                   </button>
                 </div>
@@ -496,6 +595,34 @@ export default function BarcodeGeneratorModal({ onClose }) {
         @media screen {
           .print-only { display: none !important; }
         }
+
+        @media screen and (max-width: 768px) {
+          .barcode-modal-card {
+            max-width: 100vw !important;
+            height: 100dvh !important;
+            border-radius: 0 !important;
+            border: none !important;
+          }
+          .desktop-sidebar {
+            display: none !important;
+          }
+          .mobile-filter-strip {
+            display: flex !important;
+          }
+          .desktop-table-container {
+            display: none !important;
+          }
+          .mobile-cards-container {
+            display: flex !important;
+          }
+          .desktop-only-text {
+            display: none !important;
+          }
+          .barcode-toolbar {
+            padding: 10px 14px !important;
+          }
+        }
+
         @media print {
           @page { size: 2in 1.25in; margin: 0; }
           
