@@ -246,10 +246,13 @@ export const createPosOrder = async (cartItems, customerDetails = {}, paymentOpt
 };
 
 export const fetchTodaysSales = async () => {
-  // Fetch latest orders sorted newest first (per_page 100)
-  // Timezone resilience: Filter on client side using IANA timezone detection so WordPress server vs client timezone differences are always handled accurately.
+  // Query only recent orders within the last 36 hours (safe window for any timezone worldwide)
+  // to avoid heavy full-database table scans on the WooCommerce server, then filter strictly with isOrderFromToday.
+  const afterDate = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+
   const params = {
     status: 'any',
+    after: afterDate,
     orderby: 'date',
     order: 'desc',
     per_page: 100,

@@ -197,8 +197,10 @@ function PosDashboard() {
   const updateProducts = usePosStore((s) => s.updateProducts);
   const lastSyncTimestamp = usePosStore((s) => s.lastSyncTimestamp);
 
-  const [loading, setLoading] = useState(products.length === 0);
-  const [salesLoading, setSalesLoading] = useState(true);
+  const hasHydrated = usePosStore((s) => s._hasHydrated);
+
+  const [loading, setLoading] = useState(!hasHydrated && products.length === 0);
+  const [salesLoading, setSalesLoading] = useState(!hasHydrated);
   const [dashboardError, setDashboardError] = useState('');
   const [todayOrders, setTodayOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -243,32 +245,48 @@ function PosDashboard() {
     });
   }, [posOrders, reconcilePosOrders]);
 
+  // Instant SWR: Populate cached orders and catalog stats as soon as IndexedDB hydrates (0ms display)
+  useEffect(() => {
+    if (hasHydrated) {
+      setTodayOrders(mergeOrders([]));
+      if (products.length > 0) {
+        setLoading(false);
+      }
+      setSalesLoading(false);
+    }
+  }, [hasHydrated, mergeOrders, products.length]);
+
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
-    else setLoading(true);
-    setSalesLoading(true);
     setDashboardError('');
+
     try {
+      // 1. Fetch Today's Sales in the background (Non-blocking SWR)
+      const salesPromise = fetchTodaysSales()
+        .then((sales) => {
+          setTodayOrders(mergeOrders(sales));
+          setSalesLoading(false);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch sales in background', err);
+        });
+
+      // 2. Fetch Catalog in the background
       if (products.length === 0) {
-        const [catalog, sales] = await Promise.all([
-          fetchProducts(null, (batch) => {
-            updateProducts(batch);
-            setLoading(false);
-          }),
-          fetchTodaysSales(),
-        ]);
+        setLoading(true);
+        const catalog = await fetchProducts(null, (batch) => {
+          updateProducts(batch);
+          setLoading(false);
+        });
         setProducts(catalog);
-        setTodayOrders(mergeOrders(sales));
-      } else {
-        const [deltaCatalog, sales] = await Promise.all([
-          fetchProducts(lastSyncTimestamp),
-          fetchTodaysSales()
-        ]);
+      } else if (lastSyncTimestamp) {
+        const deltaCatalog = await fetchProducts(lastSyncTimestamp);
         if (Array.isArray(deltaCatalog) && deltaCatalog.length > 0) {
           updateProducts(deltaCatalog);
         }
-        setTodayOrders(mergeOrders(sales));
       }
+
+      await salesPromise;
     } catch {
       setDashboardError('Failed to load dashboard data. Please check your connection.');
     } finally {
@@ -279,8 +297,10 @@ function PosDashboard() {
   };
 
   useEffect(() => {
-    runLoad();
-  }, []);
+    if (hasHydrated) {
+      runLoad();
+    }
+  }, [hasHydrated]);
 
   // Real-Time Polling & Instant Cross-Tab Event Listeners
   useEffect(() => {
