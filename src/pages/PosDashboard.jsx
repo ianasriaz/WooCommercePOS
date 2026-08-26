@@ -785,14 +785,14 @@ function PosDashboard() {
             <div className="metric-strip" style={{ display: 'flex', flexWrap: 'wrap' }}>
               <MetricCard
                 label="Total Catalog"
-                value={loading ? '' : `${catalogStats.totalCount.toLocaleString()} items`}
+                value={loading ? '' : catalogStats.totalCount.toLocaleString()}
                 sub={loading ? '' : `${catalogStats.inStockCount.toLocaleString()} in stock`}
                 tone="default"
                 loading={loading}
               />
               <MetricCard
                 label="Stock Alerts"
-                value={loading ? '' : `${catalogStats.outOfStockCount} out of stock`}
+                value={loading ? '' : catalogStats.outOfStockCount.toLocaleString()}
                 sub={loading ? '' : `${catalogStats.lowStockCount} low stock (quick visual warning)`}
                 tone={stockTone}
                 loading={loading}
