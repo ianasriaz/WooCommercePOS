@@ -88,25 +88,37 @@ export const fetchProducts = async (lastSyncDate = null, onProgress = null) => {
 };
 
 export const fetchVariations = async (productId) => {
-  const params = {
-    _fields: 'id,attributes,price,stock_quantity,stock_status,manage_stock,image,sku',
-    per_page: 100,
-    page: 1,
-  };
-  const firstResponse = await wcClient.get(`/wc/v3/products/${productId}/variations`, { params });
-  const variations = Array.isArray(firstResponse.data) ? [...firstResponse.data] : [];
-  const totalPages = Number.parseInt(firstResponse.headers['x-wp-totalpages'] || '1', 10);
+  if (!productId) return [];
 
-  for (let page = 2; page <= totalPages; page += 1) {
-    const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
-      params: { ...params, page },
-    });
-    if (Array.isArray(response.data)) {
-      variations.push(...response.data);
+  try {
+    const params = {
+      per_page: 100,
+      page: 1,
+    };
+    const firstResponse = await wcClient.get(`/wc/v3/products/${productId}/variations`, { params });
+    const variations = Array.isArray(firstResponse.data) ? [...firstResponse.data] : [];
+    const totalPagesHeader = firstResponse.headers?.['x-wp-totalpages'] || firstResponse.headers?.['X-WP-TotalPages'];
+    const totalPages = totalPagesHeader ? Number.parseInt(totalPagesHeader, 10) : 1;
+
+    if (totalPages > 1 && Number.isFinite(totalPages)) {
+      for (let page = 2; page <= totalPages; page += 1) {
+        const response = await wcClient.get(`/wc/v3/products/${productId}/variations`, {
+          params: { ...params, page },
+        });
+        if (Array.isArray(response.data)) {
+          variations.push(...response.data);
+        }
+      }
     }
-  }
 
-  return variations;
+    return variations;
+  } catch (error) {
+    console.error(`Failed to fetch variations for product ${productId}:`, error);
+    const apiMsg = error?.response?.data?.message || error?.message || 'Failed to load variations from server';
+    const err = new Error(apiMsg);
+    err.originalError = error;
+    throw err;
+  }
 };
 
 export const fetchProduct = async (productId) => {

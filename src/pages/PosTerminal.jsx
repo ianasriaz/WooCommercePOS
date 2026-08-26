@@ -573,7 +573,7 @@ function PosTerminal() {
     setIsVariationsModalOpen(true);
     setVariationsError('');
 
-    if (variationsCache[product.id]) {
+    if (variationsCache[product.id] && variationsCache[product.id].length > 0) {
       setVariations(variationsCache[product.id]);
       return;
     }
@@ -581,10 +581,16 @@ function PosTerminal() {
     setLoadingVariations(true);
     try {
       const fetched = await fetchVariations(product.id);
-      setVariations(fetched);
-      cacheVariations(product.id, fetched);
-    } catch {
-      setVariationsError('Could not load options for this item.');
+      if (Array.isArray(fetched) && fetched.length > 0) {
+        setVariations(fetched);
+        cacheVariations(product.id, fetched);
+      } else {
+        setVariations([]);
+        setVariationsError('No options available for this item.');
+      }
+    } catch (err) {
+      console.error('Failed to load variations for product', product.id, err);
+      setVariationsError(err?.message || 'Could not load options for this item.');
     } finally {
       setLoadingVariations(false);
     }
@@ -1052,31 +1058,37 @@ function PosTerminal() {
           </Link>
         </div>
 
-        {/* Mobile topbar actions */}
-        <div className="pos-topbar-mobile-actions">
+        {/* Mobile topbar actions - unified and properly aligned */}
+        <div className="pos-topbar-mobile-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {cartItemCount > 0 && (
             <button
               type="button"
               onClick={() => setIsMobileCartOpen(true)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                background: T.accent, border: 'none', borderRadius: 6,
-                color: '#ffffff', padding: '6px 10px', fontSize: 12, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8,
+                color: T.ink, padding: '0 10px', height: 34, fontSize: 12.5, fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
-              <IcoBox s={13} />
-              <span>{cartItemCount}</span>
+              <IcoBox s={14} />
+              <span style={{
+                background: T.accent, color: '#ffffff', borderRadius: '50%',
+                width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10.5, fontWeight: 800
+              }}>
+                {cartItemCount}
+              </span>
             </button>
           )}
           <Link to="/" style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            background: T.ink, border: `1px solid ${T.ink}`, borderRadius: 6,
-            color: '#ffffff', padding: '6px 10px', height: 32, fontSize: 12, fontWeight: 600,
-            textDecoration: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: T.ink, border: `1px solid ${T.ink}`, borderRadius: 8,
+            color: '#ffffff', padding: '0 12px', height: 34, fontSize: 12.5, fontWeight: 600,
+            textDecoration: 'none', lineHeight: 1,
           }}>
-            <IcoArrowLeft s={12} />
-            Dashboard
+            <IcoArrowLeft s={13} />
+            <span>Dashboard</span>
           </Link>
         </div>
       </header>
@@ -1204,8 +1216,8 @@ function PosTerminal() {
                         onMouseEnter={(e) => { if (!outOfStock) e.currentTarget.style.borderColor = T.inkFaint; }}
                         onMouseLeave={(e) => { if (!outOfStock) e.currentTarget.style.borderColor = T.line; }}
                       >
-                        {/* Image section */}
-                        <div style={{ width: '100%', aspectRatio: '1/1', background: T.canvas, position: 'relative' }}>
+                        {/* Image section: 4/5 aspect ratio shows complete clothing item without cropping */}
+                        <div style={{ width: '100%', aspectRatio: '4/5', background: T.canvas, position: 'relative' }}>
                           {product.images && product.images.length > 0 && product.images[0]?.src ? (
                             <ProductImage src={product.images[0].src} alt={product.name} />
                           ) : (
@@ -1504,7 +1516,21 @@ function PosTerminal() {
                   <p style={{ color: T.inkSoft, marginTop: 12, fontSize: 12.5, fontWeight: 600 }}>Loading options…</p>
                 </div>
               )}
-              {!loadingVariations && variationsError && <NoticeBar type="error" text={variationsError} />}
+              {!loadingVariations && variationsError && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+                  <NoticeBar type="error" text={variationsError} />
+                  <button
+                    type="button"
+                    onClick={() => selectedProduct && handleOpenVariations(selectedProduct)}
+                    style={{
+                      padding: '8px 16px', borderRadius: 7, background: T.ink, color: '#ffffff',
+                      border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Retry loading options
+                  </button>
+                </div>
+              )}
               {!loadingVariations && !variationsError && variations.length === 0 && (
                 <p style={{ color: T.inkSoft, fontSize: 13, textAlign: 'center', padding: '40px 0', fontWeight: 500 }}>No options available.</p>
               )}
