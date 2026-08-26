@@ -427,6 +427,13 @@ function PosTerminal() {
     handleBarcodeScan(barcode);
   });
 
+  // Instant 0ms SWR hydration from IndexedDB
+  useEffect(() => {
+    if (_hasHydrated && products.length > 0) {
+      setLoadingProducts(false);
+    }
+  }, [_hasHydrated, products.length]);
+
   // Background catalog initialization
   useEffect(() => {
     if (!_hasHydrated) return;
@@ -448,6 +455,8 @@ function PosTerminal() {
         .finally(() => {
           setLoadingProducts(false);
         });
+    } else {
+      setLoadingProducts(false);
     }
   }, [setProducts, products.length, _hasHydrated, updateProducts]);
 
