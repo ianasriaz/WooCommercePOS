@@ -64,6 +64,7 @@ const IcoUser = ({ size = 14 }) => <Svg size={size}><path d="M20 21v-2a4 4 0 0 0
 const IcoPhone = ({ size = 13 }) => <Svg size={size}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></Svg>;
 const IcoChevronRight = ({ size = 14 }) => <Svg size={size} strokeWidth="2"><polyline points="9 18 15 12 9 6" /></Svg>;
 const IcoBox = ({ size = 14 }) => <Svg size={size}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></Svg>;
+const IcoReceipt = ({ size = 14 }) => <Svg size={size}><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" /><path d="M16 8h-8" /><path d="M16 12h-8" /><path d="M11 16H8" /></Svg>;
 
 /* ─── Shimmer keyframes ─────────────────────────────────────── */
 const ShimmerStyle = () => (
@@ -109,35 +110,8 @@ function LiveClock() {
   );
 }
 
-/* ─── Product Thumbnail Avatar ─────────────────────────────── */
-const ProductAvatar = ({ src, alt, name }) => {
-  const [hasError, setHasError] = useState(!src);
-  return (
-    <div style={{
-      width: 36, height: 36, borderRadius: 8, background: '#f1f5f9',
-      border: '1px solid #e2e8f0', overflow: 'hidden', flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {!hasError && src ? (
-        <img
-          src={src}
-          alt={alt || name}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setHasError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      ) : (
-        <span style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-          {name ? name.charAt(0).toUpperCase() : <IcoBox size={16} />}
-        </span>
-      )}
-    </div>
-  );
-};
-
 /* ─── Ledger strip segment ─────────────────────────────────── */
-const LedgerSegment = ({ label, value, sub, tone = 'default', loading, last, onClick, active }) => {
+const MetricCard = ({ label, value, sub, tone = 'default', loading, last, onClick, active }) => {
   const toneColor = {
     default: T.ink,
     accent: T.accent,
@@ -150,7 +124,7 @@ const LedgerSegment = ({ label, value, sub, tone = 'default', loading, last, onC
       onClick={onClick}
       style={{
         flex: '1 1 0',
-        minWidth: 180,
+        minWidth: 200,
         padding: '20px 24px',
         borderRight: last ? 'none' : `1px solid ${T.line}`,
         display: 'flex', flexDirection: 'column', gap: 8,
@@ -160,8 +134,8 @@ const LedgerSegment = ({ label, value, sub, tone = 'default', loading, last, onC
       }}
     >
       <span style={{
-        fontSize: 10.5, fontWeight: 700, color: T.inkSoft,
-        textTransform: 'uppercase', letterSpacing: '0.09em',
+        fontSize: 11, fontWeight: 700, color: T.inkSoft,
+        textTransform: 'uppercase', letterSpacing: '0.08em',
       }}>
         {label}
       </span>
@@ -173,12 +147,15 @@ const LedgerSegment = ({ label, value, sub, tone = 'default', loading, last, onC
       ) : (
         <>
           <span style={{
-            fontFamily: T.mono, fontSize: 28, fontWeight: 700, color: toneColor,
-            letterSpacing: '-0.03em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+            fontFamily: T.mono, fontSize: 26, fontWeight: 700, color: toneColor,
+            letterSpacing: '-0.02em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {value}
           </span>
-          <span style={{ fontSize: 12, color: T.inkFaint, fontWeight: 500 }}>{sub}</span>
+          <span style={{ fontSize: 12, color: T.inkFaint, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {sub}
+          </span>
         </>
       )}
     </div>
@@ -194,17 +171,6 @@ const Panel = ({ children, style = {} }) => (
     {children}
   </div>
 );
-
-/* ─── Status dot ───────────────────────────────────────────── */
-const StatusDot = ({ label }) => {
-  const color = { Out: T.danger, Low: T.warn, 'In stock': T.accent }[label] || T.accent;
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: T.ink }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
-      {label}
-    </div>
-  );
-};
 
 const getOrderChannel = (order) => {
   const method = String(order?.payment_method || '').toLowerCase();
@@ -225,7 +191,6 @@ function PosDashboard() {
   const storeUrl = useAuthStore((s) => s.storeUrl);
   const products = usePosStore((s) => s.products);
   const posOrders = usePosStore((s) => s.posOrders);
-  const hasHydrated = usePosStore((s) => s._hasHydrated);
   const reconcilePosOrders = usePosStore((s) => s.reconcilePosOrders);
   const setProducts = usePosStore((s) => s.setProducts);
   const updateProducts = usePosStore((s) => s.updateProducts);
@@ -236,14 +201,11 @@ function PosDashboard() {
   const [dashboardError, setDashboardError] = useState('');
   const [todayOrders, setTodayOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
-
-  // Enhancements State
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [receiptOrder, setReceiptOrder] = useState(null);
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
-  const [inventorySearch, setInventorySearch] = useState('');
-  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all', 'instock', 'low', 'out'
+  const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersFilter, setOrdersFilter] = useState('all'); // 'all', 'in-store', 'online'
 
   const confirmedOrdersRef = useRef(new Map());
@@ -316,51 +278,19 @@ function PosDashboard() {
   };
 
   useEffect(() => {
-    let alive = true;
-    if (!hasHydrated) return () => { alive = false; };
-    (async () => {
-      const needsFullSync = products.length === 0 || products.some(p => p.categories === undefined);
-      if (products.length === 0) setLoading(true);
+    runLoad();
+  }, []);
 
-      const catalogPromise = needsFullSync
-        ? fetchProducts(null, (batch) => {
-          if (!alive) return;
-          updateProducts(batch);
-          setLoading(false);
-        })
-        : (lastSyncTimestamp ? fetchProducts(lastSyncTimestamp) : Promise.resolve([]));
-      
-      const salesPromise = fetchTodaysSales();
-
-      try {
-        const [catalog, sales] = await Promise.all([catalogPromise, salesPromise]);
-        if (!alive) return;
-        if (needsFullSync) {
-          setProducts(catalog);
-        } else if (Array.isArray(catalog) && catalog.length > 0) {
-          updateProducts(catalog);
-        }
-        setTodayOrders(mergeOrders(sales));
-      } catch {
-        if (alive) setDashboardError('Failed to load dashboard data. Please try again.');
-      } finally {
-        if (alive) {
-          setLoading(false);
-          setSalesLoading(false);
-        }
-      }
-    })();
-    return () => { alive = false; };
-  }, [hasHydrated]);
-
+  // Real-Time Polling & Instant Cross-Tab Event Listeners
   useEffect(() => {
     let alive = true;
-    
+    let pollInterval = null;
+
     const fetchSalesAndDelta = async () => {
       try {
         const [sales, deltaProducts] = await Promise.all([
           fetchTodaysSales(),
-          lastSyncTimestamp ? fetchProducts(lastSyncTimestamp) : Promise.resolve([]),
+          lastSyncTimestamp ? fetchProducts(lastSyncTimestamp) : Promise.resolve(null),
         ]);
         if (alive) {
           setTodayOrders(mergeOrders(sales));
@@ -416,27 +346,25 @@ function PosDashboard() {
     window.addEventListener('storage', handleStorage);
 
     try {
-      const storedMessage = window.localStorage.getItem(POS_ORDER_CREATED_EVENT);
-      if (storedMessage) handleStorage({ key: POS_ORDER_CREATED_EVENT, newValue: storedMessage });
+      fetchSalesAndDelta();
     } catch {
-      // fallback
+      // background
     }
 
-    let interval = null;
     const startPolling = () => {
-      if (!interval) {
-        interval = setInterval(() => {
+      if (!pollInterval) {
+        pollInterval = setInterval(() => {
           if (document.visibilityState === 'visible') {
             fetchSalesAndDelta();
           }
-        }, 25000);
+        }, 15000);
       }
     };
 
     const stopPolling = () => {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
       }
     };
 
@@ -462,7 +390,7 @@ function PosDashboard() {
     };
   }, [lastSyncTimestamp, mergeOrders, updateProducts]);
 
-  // Analytics & Shift Calculations
+  // Analytics & Revenue Calculations (Row 1)
   const summary = useMemo(() => {
     const totalSales = todayOrders.reduce((s, o) => s + (Number.parseFloat(o.total) || 0), 0);
     const inStoreOrders = todayOrders.filter((o) => getOrderChannel(o) === 'in-store');
@@ -471,20 +399,19 @@ function PosDashboard() {
     const onlineSales = onlineOrders.reduce((s, o) => s + (Number.parseFloat(o.total) || 0), 0);
 
     // Payment Method Breakdown
-    const cashOrders = inStoreOrders.filter((o) => String(o?.payment_method || '').toLowerCase() === 'pos_cash' || String(o?.payment_method_title || '').toLowerCase().includes('cash'));
+    const cashOrders = inStoreOrders.filter((o) => {
+      const method = String(o?.payment_method || '').toLowerCase();
+      const title = String(o?.payment_method_title || '').toLowerCase();
+      return method === 'pos_cash' || title.includes('cash');
+    });
     const cashTotal = cashOrders.reduce((s, o) => s + (Number.parseFloat(o.total) || 0), 0);
-    const bankTransferOrders = inStoreOrders.filter((o) => String(o?.payment_method || '').toLowerCase() === 'bacs' || String(o?.payment_method_title || '').toLowerCase().includes('bank'));
+
+    const bankTransferOrders = inStoreOrders.filter((o) => {
+      const method = String(o?.payment_method || '').toLowerCase();
+      const title = String(o?.payment_method_title || '').toLowerCase();
+      return method === 'bacs' || title.includes('bank') || title.includes('card') || title.includes('pos_card');
+    });
     const bankTotal = bankTransferOrders.reduce((s, o) => s + (Number.parseFloat(o.total) || 0), 0);
-
-    const outOfStock = products.filter((p) =>
-      p.manage_stock ? Number.parseFloat(p.stock_quantity) <= 0 : p.stock_status === 'outofstock'
-    ).length;
-    const lowStock = products.filter((p) => {
-      const q = Number.parseFloat(p.stock_quantity);
-      return p.manage_stock && Number.isFinite(q) && q > 0 && q <= 5;
-    }).length;
-
-    const avgBasket = todayOrders.length > 0 ? Math.round(totalSales / todayOrders.length) : 0;
 
     return {
       totalSales,
@@ -495,54 +422,91 @@ function PosDashboard() {
       onlineSales,
       cashTotal,
       bankTotal,
-      avgBasket,
-      outOfStock,
-      lowStock,
     };
-  }, [products, todayOrders]);
+  }, [todayOrders]);
 
-  // Filtered Inventory List
-  const filteredProducts = useMemo(() => {
-    let result = products;
-
-    if (inventorySearch.trim()) {
-      const q = inventorySearch.toLowerCase().trim();
-      result = result.filter((p) => {
-        const name = (p.name || '').toLowerCase();
-        const sku = (p.sku || '').toLowerCase();
-        const id = String(p.id);
-        return name.includes(q) || sku.includes(q) || id.includes(q);
-      });
+  // Catalog & Inventory Calculations (Row 2)
+  const catalogStats = useMemo(() => {
+    if (!products || products.length === 0) {
+      return {
+        totalCount: 0,
+        inStockCount: 0,
+        outOfStockCount: 0,
+        lowStockCount: 0,
+        latestProduct: null,
+      };
     }
 
-    if (inventoryFilter === 'out') {
-      result = result.filter((p) =>
-        p.manage_stock ? Number.parseFloat(p.stock_quantity) <= 0 : p.stock_status === 'outofstock'
-      );
-    } else if (inventoryFilter === 'low') {
-      result = result.filter((p) => {
-        const q = Number.parseFloat(p.stock_quantity);
-        return p.manage_stock && Number.isFinite(q) && q > 0 && q <= 5;
-      });
-    } else if (inventoryFilter === 'instock') {
-      result = result.filter((p) =>
-        p.manage_stock ? Number.parseFloat(p.stock_quantity) > 5 : p.stock_status === 'instock'
-      );
+    let inStock = 0;
+    let outOfStock = 0;
+    let lowStock = 0;
+    let newest = null;
+    let newestTime = -1;
+
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      const q = Number.parseFloat(p.stock_quantity);
+
+      if (p.manage_stock) {
+        if (Number.isFinite(q)) {
+          if (q <= 0) outOfStock++;
+          else if (q <= 5) {
+            lowStock++;
+            inStock++;
+          } else {
+            inStock++;
+          }
+        } else if (p.stock_status === 'outofstock') {
+          outOfStock++;
+        } else {
+          inStock++;
+        }
+      } else {
+        if (p.stock_status === 'outofstock') outOfStock++;
+        else inStock++;
+      }
+
+      const createdTime = p.date_created ? new Date(p.date_created).getTime() : (p.id || 0);
+      if (createdTime > newestTime) {
+        newestTime = createdTime;
+        newest = p;
+      }
     }
 
-    return result
-      .sort((a, b) => new Date(b.date_created || 0) - new Date(a.date_created || 0))
-      .slice(0, 40);
-  }, [products, inventorySearch, inventoryFilter]);
+    return {
+      totalCount: products.length,
+      inStockCount: inStock,
+      outOfStockCount: outOfStock,
+      lowStockCount: lowStock,
+      latestProduct: newest,
+    };
+  }, [products]);
 
-  // Filtered Orders List
+  // Filtered & Searched Orders List
   const displayOrders = useMemo(() => {
-    if (ordersFilter === 'in-store') return todayOrders.filter((o) => getOrderChannel(o) === 'in-store');
-    if (ordersFilter === 'online') return todayOrders.filter((o) => getOrderChannel(o) === 'online');
-    return todayOrders;
-  }, [todayOrders, ordersFilter]);
+    let list = todayOrders;
 
-  const stockTone = summary.outOfStock > 0 ? 'danger' : summary.lowStock > 0 ? 'warn' : 'accent';
+    if (ordersFilter === 'in-store') {
+      list = list.filter((o) => getOrderChannel(o) === 'in-store');
+    } else if (ordersFilter === 'online') {
+      list = list.filter((o) => getOrderChannel(o) === 'online');
+    }
+
+    if (ordersSearch.trim()) {
+      const q = ordersSearch.toLowerCase().trim();
+      list = list.filter((o) => {
+        const id = String(o.id || '');
+        const name = `${o.billing?.first_name || ''} ${o.billing?.last_name || ''}`.toLowerCase();
+        const phone = String(o.billing?.phone || '').toLowerCase();
+        const payment = String(o.payment_method_title || o.payment_method || '').toLowerCase();
+        return id.includes(q) || name.includes(q) || phone.includes(q) || payment.includes(q);
+      });
+    }
+
+    return list;
+  }, [todayOrders, ordersFilter, ordersSearch]);
+
+  const stockTone = catalogStats.outOfStockCount > 0 ? 'danger' : catalogStats.lowStockCount > 0 ? 'warn' : 'accent';
 
   return (
     <Layout>
@@ -607,7 +571,6 @@ function PosDashboard() {
               Print Barcodes
             </button>
 
-            {/* Standard + New sale button (No shortcut hint per prompt) */}
             <Link
               to="/sale"
               style={{
@@ -639,350 +602,311 @@ function PosDashboard() {
             </div>
           )}
 
-          {/* ── Ledger KPI Strip ──────────────────────────────── */}
+          {/* ── ROW 1: SALES & REVENUE KPI STRIP (3 CARDS) ────── */}
           <div style={{
             background: T.surface, border: `1px solid ${T.line}`, borderRadius: 10,
-            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 20, overflow: 'hidden'
+            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 16, overflow: 'hidden'
           }}>
             <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-              <LedgerSegment
-                label="Revenue today"
+              <MetricCard
+                label="Today Sales"
                 value={salesLoading ? '' : formatPkr(summary.totalSales)}
                 sub={`${summary.orderCount} orders today`}
                 tone="default"
                 loading={salesLoading}
               />
-              <LedgerSegment
-                label="In-store POS"
+              <MetricCard
+                label="In-Store Sales"
                 value={salesLoading ? '' : formatPkr(summary.inStoreSales)}
-                sub={`Cash: ${formatPkr(summary.cashTotal)} · Card: ${formatPkr(summary.bankTotal)}`}
+                sub={`Cash: ${formatPkr(summary.cashTotal)} · Bank: ${formatPkr(summary.bankTotal)}`}
                 tone="accent"
                 loading={salesLoading}
               />
-              <LedgerSegment
-                label="Online store"
+              <MetricCard
+                label="Online Sales"
                 value={salesLoading ? '' : formatPkr(summary.onlineSales)}
-                sub={`${summary.onlineOrderCount} web checkouts`}
+                sub={`${summary.onlineOrderCount} orders`}
                 tone="default"
                 loading={salesLoading}
-              />
-              <LedgerSegment
-                label="Stock alerts"
-                value={products.length === 0 ? '' : String(summary.lowStock + summary.outOfStock)}
-                sub={products.length === 0 ? '' : `${summary.outOfStock} out · ${summary.lowStock} low (click to view)`}
-                tone={stockTone}
-                loading={products.length === 0}
-                active={inventoryFilter === 'out' || inventoryFilter === 'low'}
-                onClick={() => setInventoryFilter(inventoryFilter === 'out' ? 'all' : 'out')}
                 last
               />
             </div>
           </div>
 
-          {/* ── Main Data Panels (Grid) ───────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
+          {/* ── ROW 2: INVENTORY & CATALOG KPI STRIP (3 CARDS) ── */}
+          <div style={{
+            background: T.surface, border: `1px solid ${T.line}`, borderRadius: 10,
+            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 20, overflow: 'hidden'
+          }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+              <MetricCard
+                label="Total Catalog"
+                value={loading ? '' : `${catalogStats.totalCount.toLocaleString()} items`}
+                sub={loading ? '' : `${catalogStats.inStockCount.toLocaleString()} in stock`}
+                tone="default"
+                loading={loading}
+              />
+              <MetricCard
+                label="Stock Alerts"
+                value={loading ? '' : `${catalogStats.outOfStockCount} out of stock`}
+                sub={loading ? '' : `${catalogStats.lowStockCount} low stock (quick visual warning)`}
+                tone={stockTone}
+                loading={loading}
+              />
+              <MetricCard
+                label="Latest Added Item"
+                value={loading ? '' : (catalogStats.latestProduct ? `${catalogStats.latestProduct.name} — ${formatPkr(catalogStats.latestProduct.price)}` : 'None')}
+                sub={loading ? '' : (catalogStats.latestProduct?.date_created ? `Added ${fmtDate(catalogStats.latestProduct.date_created)} · ${fmtTime(catalogStats.latestProduct.date_created)}` : 'No recent items')}
+                tone="default"
+                loading={loading}
+                last
+              />
+            </div>
+          </div>
 
-            {/* ── INVENTORY PANEL (#3) ────────────────────────── */}
-            <Panel>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '16px 20px', borderBottom: `1px solid ${T.lineSoft}`, gap: 12, flexWrap: 'wrap'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Inventory</span>
-                  <span style={{ fontFamily: T.mono, fontSize: 12, color: T.inkFaint }}>
-                    {products.length.toLocaleString()} items
-                  </span>
-                </div>
+          {/* ── RECENT IN-STORE INVOICES TABLE SECTION ─────────── */}
+          <Panel>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px', borderBottom: `1px solid ${T.lineSoft}`, gap: 12, flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: T.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <IcoReceipt size={16} />
+                  Recent In-Store Invoices
+                </span>
+                <span style={{ fontFamily: T.mono, fontSize: 12, color: T.inkFaint }}>
+                  {!salesLoading ? `${displayOrders.length} today` : ''}
+                </span>
+              </div>
 
-                {/* Quick Instant Search */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, maxWidth: 280 }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc',
-                    border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px', width: '100%'
-                  }}>
-                    <IcoSearch size={13} />
-                    <input
-                      type="text"
-                      placeholder="Search name, SKU, ID..."
-                      value={inventorySearch}
-                      onChange={(e) => setInventorySearch(e.target.value)}
-                      style={{
-                        border: 'none', background: 'transparent', outline: 'none',
-                        fontSize: 12.5, width: '100%', color: T.ink, fontFamily: 'inherit'
-                      }}
-                    />
-                    {inventorySearch && (
-                      <button
-                        type="button"
-                        onClick={() => setInventorySearch('')}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: T.inkFaint }}
-                      >
-                        <IcoClose size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Filter Pills */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {[
-                    { id: 'all', label: 'All' },
-                    { id: 'instock', label: 'In Stock' },
-                    { id: 'low', label: 'Low' },
-                    { id: 'out', label: 'Out' },
-                  ].map((f) => (
+              {/* Instant Search Box */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, maxWidth: 360 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc',
+                  border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', width: '100%'
+                }}>
+                  <IcoSearch size={13} />
+                  <input
+                    type="text"
+                    placeholder="Search invoice #, customer, phone..."
+                    value={ordersSearch}
+                    onChange={(e) => setOrdersSearch(e.target.value)}
+                    style={{
+                      border: 'none', background: 'transparent', outline: 'none',
+                      fontSize: 12.5, width: '100%', color: T.ink, fontFamily: 'inherit'
+                    }}
+                  />
+                  {ordersSearch && (
                     <button
-                      key={f.id}
                       type="button"
-                      onClick={() => setInventoryFilter(f.id)}
-                      style={{
-                        padding: '4px 9px', borderRadius: 5, border: 'none',
-                        fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                        background: inventoryFilter === f.id ? T.ink : '#f1f5f9',
-                        color: inventoryFilter === f.id ? '#ffffff' : T.inkSoft,
-                        transition: 'all 0.12s'
-                      }}
+                      onClick={() => setOrdersSearch('')}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: T.inkFaint }}
                     >
-                      {f.label}
+                      <IcoClose size={12} />
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
 
-              {/* Table Header */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: '1.8fr 120px 85px 100px',
-                padding: '10px 20px', borderBottom: `1px solid ${T.line}`, background: '#fafbfc'
-              }}>
-                {['Product', 'Added', 'Status', 'Price'].map((h, i) => (
-                  <span key={h} style={{
-                    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-                    color: T.inkFaint, textAlign: i === 3 ? 'right' : i === 2 ? 'center' : 'left',
-                  }}>
-                    {h}
-                  </span>
+              {/* Orders Filter Tabs */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {[
+                  { id: 'all', label: 'All Invoices' },
+                  { id: 'in-store', label: 'POS Terminal' },
+                  { id: 'online', label: 'Online Store' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setOrdersFilter(tab.id)}
+                    style={{
+                      padding: '5px 10px', borderRadius: 6, border: 'none',
+                      fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                      background: ordersFilter === tab.id ? T.ink : '#f1f5f9',
+                      color: ordersFilter === tab.id ? '#ffffff' : T.inkSoft,
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
               </div>
+            </div>
 
-              {/* Table Rows */}
-              {products.length === 0 ? (
-                <div style={{ padding: '20px' }}>
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.8fr 120px 85px 100px', padding: '12px 0', gap: 8 }}>
-                      <Skel w="80%" h={14} />
-                      <Skel w="60%" h={12} />
-                      <Skel w={45} h={12} style={{ margin: '0 auto' }} />
-                      <Skel w="60%" h={14} style={{ marginLeft: 'auto' }} />
-                    </div>
-                  ))}
-                </div>
-              ) : filteredProducts.length === 0 ? (
-                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 13.5, color: T.inkSoft, margin: 0, fontWeight: 500 }}>
-                    No matching products found.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-                  {filteredProducts.map((p) => {
-                    const q = Number.parseFloat(p.stock_quantity);
-                    const label = p.manage_stock
-                      ? q <= 0 ? 'Out' : q <= 5 ? 'Low' : 'In stock'
-                      : p.stock_status === 'outofstock' ? 'Out' : 'In stock';
-
-                    const primaryImg = p.images?.[0]?.src || null;
-
-                    return (
-                      <div
-                        key={p.id}
-                        style={{
-                          display: 'grid', gridTemplateColumns: '1.8fr 120px 85px 100px', alignItems: 'center',
-                          padding: '11px 20px', borderBottom: `1px solid ${T.lineSoft}`,
-                          transition: 'background 0.12s',
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        {/* Product info with 36px Thumbnail Avatar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, paddingRight: 10 }}>
-                          <ProductAvatar src={primaryImg} alt={p.name} name={p.name} />
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{
-                              fontSize: 13, fontWeight: 600, color: T.ink,
-                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            }}>
-                              {p.name}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                              <span style={{
-                                fontFamily: T.mono, fontSize: 10.5, color: T.inkFaint,
-                                background: '#f1f5f9', padding: '1px 5px', borderRadius: 3
-                              }}>
-                                {p.sku || `ID:${p.id}`}
-                              </span>
-                              {p.categories?.[0]?.name && (
-                                <span style={{ fontSize: 11, color: T.inkSoft }}>
-                                  {p.categories[0].name}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Date Added */}
-                        <div style={{ fontSize: 11.5, color: T.inkSoft, fontWeight: 500, lineHeight: 1.3 }}>
-                          {p.date_created ? (
-                            <>
-                              <div>{fmtDate(new Date(p.date_created))}</div>
-                              <div style={{ fontSize: 10.5, color: T.inkFaint }}>{fmtTime(new Date(p.date_created))}</div>
-                            </>
-                          ) : '—'}
-                        </div>
-
-                        {/* Stock Status */}
-                        <div style={{ textAlign: 'center' }}>
-                          <StatusDot label={label} />
-                        </div>
-
-                        {/* Price */}
-                        <div style={{
-                          textAlign: 'right', fontFamily: T.mono, fontSize: 13, fontWeight: 700,
-                          color: T.ink, fontVariantNumeric: 'tabular-nums',
-                        }}>
-                          {formatPkr(p.price)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Panel>
-
-            {/* ── RECENT ORDERS PANEL (Clickable) ─────────────── */}
-            <Panel>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '16px 20px', borderBottom: `1px solid ${T.lineSoft}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Recent Sales</span>
-                  <span style={{ fontFamily: T.mono, fontSize: 12, color: T.inkFaint }}>
-                    {!salesLoading ? `${todayOrders.length} today` : ''}
-                  </span>
-                </div>
-
-                {/* Orders Filter Tabs */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {[
-                    { id: 'all', label: 'All' },
-                    { id: 'in-store', label: 'POS' },
-                    { id: 'online', label: 'Web' },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setOrdersFilter(tab.id)}
-                      style={{
-                        padding: '3px 8px', borderRadius: 5, border: 'none',
-                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                        background: ordersFilter === tab.id ? T.ink : '#f1f5f9',
-                        color: ordersFilter === tab.id ? '#ffffff' : T.inkSoft,
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Invoices List Content */}
+            {salesLoading ? (
+              <div style={{ padding: '24px 20px' }}>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <Skel w={140} h={16} />
+                    <Skel w={100} h={14} />
+                    <Skel w={80} h={16} />
+                  </div>
+                ))}
               </div>
-
-              {salesLoading ? (
-                <div style={{ padding: '20px' }}>
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
-                      <Skel w={100} h={14} />
-                      <Skel w={70} h={14} />
-                    </div>
-                  ))}
+            ) : displayOrders.length === 0 ? (
+              <div style={{ padding: '56px 20px', textAlign: 'center' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: '50%', background: '#f1f5f9',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: T.inkSoft
+                }}>
+                  <IcoReceipt size={22} />
                 </div>
-              ) : displayOrders.length === 0 ? (
-                <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: T.ink, margin: '0 0 4px' }}>No sales recorded</p>
-                  <p style={{ fontSize: 12, color: T.inkSoft, margin: 0 }}>Completed orders will appear here in real-time.</p>
-                </div>
-              ) : (
-                <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-                  {displayOrders.slice(0, 15).map((order) => {
-                    const channel = getOrderChannel(order);
-                    const isInStore = channel === 'in-store';
-                    const isSelected = selectedOrder?.id === order.id;
+                <p style={{ fontSize: 15, fontWeight: 700, color: T.ink, margin: '0 0 6px' }}>No invoices recorded today</p>
+                <p style={{ fontSize: 13, color: T.inkSoft, margin: '0 0 16px' }}>Completed POS sales and web orders will appear here automatically.</p>
+                <Link
+                  to="/sale"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: T.accent, color: '#ffffff', padding: '8px 16px', borderRadius: 6,
+                    textDecoration: 'none', fontSize: 13, fontWeight: 700
+                  }}
+                >
+                  <IcoPlus size={14} />
+                  Open POS Terminal
+                </Link>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#fafbfc', borderBottom: `1px solid ${T.line}` }}>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Invoice #</th>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Customer</th>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Items</th>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Payment & Status</th>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Time</th>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', textAlign: 'right' }}>Total</th>
+                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayOrders.map((order) => {
+                      const channel = getOrderChannel(order);
+                      const isInStore = channel === 'in-store';
+                      const isSelected = selectedOrder?.id === order.id;
+                      const customerName = `${order.billing?.first_name || ''} ${order.billing?.last_name || ''}`.trim() || 'Walk-in Customer';
+                      const itemsCount = (order.line_items || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
 
-                    return (
-                      <div
-                        key={order.id}
-                        onClick={() => setSelectedOrder(order)}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '12px 20px', borderLeft: `3px solid ${isInStore ? T.accent : '#3b82f6'}`,
-                          borderBottom: `1px solid ${T.lineSoft}`,
-                          background: isSelected ? '#f0fdf4' : 'transparent',
-                          cursor: 'pointer', transition: 'background 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
-                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.ink }}>
-                              #{order.id}
-                            </span>
-                            <span style={{
-                              fontSize: 10.5, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                              background: isInStore ? '#ecfdf5' : '#eff6ff',
-                              color: isInStore ? '#065f46' : '#1e40af', textTransform: 'uppercase'
-                            }}>
-                              {isInStore ? 'POS' : 'Web'}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.inkSoft }}>
-                            <span style={{
-                              textTransform: 'capitalize', fontWeight: 600,
-                              color: order.status === 'completed' ? T.accent : T.warn,
-                            }}>
-                              {order.status}
-                            </span>
-                            <span>•</span>
-                            <span>{order.payment_method_title || order.payment_method || 'Cash'}</span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{
-                              fontFamily: T.mono, fontSize: 13.5, fontWeight: 700, color: T.ink,
-                              fontVariantNumeric: 'tabular-nums',
-                            }}>
-                              {formatPkr(order.total)}
+                      return (
+                        <tr
+                          key={order.id}
+                          onClick={() => setSelectedOrder(order)}
+                          style={{
+                            borderBottom: `1px solid ${T.lineSoft}`,
+                            background: isSelected ? '#f0fdf4' : 'transparent',
+                            cursor: 'pointer',
+                            transition: 'background 0.12s ease',
+                          }}
+                          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {/* Invoice # & Channel */}
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>
+                                #{order.id}
+                              </span>
+                              <span style={{
+                                fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                                background: isInStore ? '#ecfdf5' : '#eff6ff',
+                                color: isInStore ? '#065f46' : '#1e40af', textTransform: 'uppercase'
+                              }}>
+                                {isInStore ? 'POS' : 'Web'}
+                              </span>
                             </div>
-                            {(order.date_created || order.date_created_gmt) && (
-                              <div style={{ fontSize: 10.5, color: T.inkFaint, marginTop: 1 }}>
-                                {fmtTime(order)}
+                          </td>
+
+                          {/* Customer Name & Phone */}
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                              {customerName}
+                            </div>
+                            {order.billing?.phone && (
+                              <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
+                                {order.billing.phone}
                               </div>
                             )}
-                          </div>
-                          <IcoChevronRight size={14} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Panel>
-          </div>
+                          </td>
+
+                          {/* Line items summary */}
+                          <td style={{ padding: '14px 20px' }}>
+                            <span style={{
+                              fontSize: 12, fontWeight: 600, color: T.inkSoft,
+                              background: '#f1f5f9', padding: '3px 7px', borderRadius: 4
+                            }}>
+                              {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+                            </span>
+                          </td>
+
+                          {/* Payment method & Status */}
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{
+                                width: 6, height: 6, borderRadius: '50%',
+                                background: order.status === 'completed' ? T.accent : T.warn
+                              }} />
+                              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>
+                                {order.payment_method_title || order.payment_method || 'Cash'}
+                              </span>
+                              <span style={{
+                                fontSize: 11, color: T.inkFaint, textTransform: 'capitalize'
+                              }}>
+                                ({order.status})
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Timestamp */}
+                          <td style={{ padding: '14px 20px', fontSize: 12, color: T.inkSoft }}>
+                            {order.date_created || order.date_created_gmt ? fmtTime(order) : '—'}
+                          </td>
+
+                          {/* Total */}
+                          <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                            <span style={{
+                              fontFamily: T.mono, fontSize: 14.5, fontWeight: 700, color: T.ink,
+                              fontVariantNumeric: 'tabular-nums'
+                            }}>
+                              {formatPkr(order.total)}
+                            </span>
+                          </td>
+
+                          {/* Action */}
+                          <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReceiptOrder(order);
+                                setIsReceiptOpen(true);
+                              }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
+                                padding: '5px 10px', fontSize: 11.5, fontWeight: 600, color: T.ink,
+                                cursor: 'pointer'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                            >
+                              <IcoPrinter size={12} />
+                              Receipt
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
         </div>
       </div>
 
-      {/* ── Interactive Order Slide-Over Drawer (#1) ────────── */}
+      {/* ── Interactive Order Slide-Over Drawer ──────────────── */}
       {selectedOrder && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100,
