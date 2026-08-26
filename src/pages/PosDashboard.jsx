@@ -688,7 +688,7 @@ function PosDashboard() {
                 loading={loading}
               />
               <MetricCard
-                label="Last Inventory Update"
+                label="Last Inventory Sync"
                 value={loading ? '' : formatTimeAgo(catalogStats.lastUpdatedDate)}
                 sub={loading ? '' : (catalogStats.lastUpdatedDate ? `Synced ${fmtDate(catalogStats.lastUpdatedDate)} · ${fmtTime(catalogStats.lastUpdatedDate)}` : 'Catalog up-to-date')}
                 tone="default"
