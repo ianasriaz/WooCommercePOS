@@ -216,7 +216,7 @@ function PosDashboard() {
   const mergeOrders = useCallback((serverOrders = []) => {
     const orderMap = new Map();
 
-    serverOrders.forEach((order) => {
+    (serverOrders || []).forEach((order) => {
       if (order?.id) orderMap.set(order.id, order);
     });
 
@@ -232,8 +232,6 @@ function PosDashboard() {
       }
     });
 
-    reconcilePosOrders(serverOrders);
-
     const mergedList = Array.from(orderMap.values()).filter((order) => {
       return isOrderFromToday(order);
     });
@@ -243,7 +241,7 @@ function PosDashboard() {
       const dateB = parseOrderDate(b)?.getTime() || 0;
       return dateB - dateA;
     });
-  }, [posOrders, reconcilePosOrders]);
+  }, [posOrders]);
 
   // Instant SWR: Populate cached orders and catalog stats as soon as IndexedDB hydrates (0ms display)
   useEffect(() => {
@@ -254,7 +252,7 @@ function PosDashboard() {
       }
       setSalesLoading(false);
     }
-  }, [hasHydrated, mergeOrders, products.length]);
+  }, [hasHydrated]);
 
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -264,6 +262,9 @@ function PosDashboard() {
       // 1. Fetch Today's Sales in the background (Non-blocking SWR)
       const salesPromise = fetchTodaysSales()
         .then((sales) => {
+          if (Array.isArray(sales) && sales.length > 0) {
+            reconcilePosOrders(sales);
+          }
           setTodayOrders(mergeOrders(sales));
           setSalesLoading(false);
         })
@@ -314,6 +315,9 @@ function PosDashboard() {
           lastSyncTimestamp ? fetchProducts(lastSyncTimestamp) : Promise.resolve(null),
         ]);
         if (alive) {
+          if (Array.isArray(sales) && sales.length > 0) {
+            reconcilePosOrders(sales);
+          }
           setTodayOrders(mergeOrders(sales));
           if (Array.isArray(deltaProducts) && deltaProducts.length > 0) {
             updateProducts(deltaProducts);
