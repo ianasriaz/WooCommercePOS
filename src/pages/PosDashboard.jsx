@@ -9,6 +9,7 @@ import {
   formatOrderDate,
   formatOrderTime,
   formatOrderDateTime,
+  formatTimeAgo,
 } from '../utils/date-utils';
 import Layout from '../components/Layout';
 import BarcodeGeneratorModal from '../components/BarcodeGeneratorModal';
@@ -433,15 +434,14 @@ function PosDashboard() {
         inStockCount: 0,
         outOfStockCount: 0,
         lowStockCount: 0,
-        latestProduct: null,
+        lastUpdatedDate: null,
       };
     }
 
     let inStock = 0;
     let outOfStock = 0;
     let lowStock = 0;
-    let newest = null;
-    let newestTime = -1;
+    let newestModifiedTime = lastSyncTimestamp ? new Date(lastSyncTimestamp).getTime() : -1;
 
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
@@ -466,21 +466,31 @@ function PosDashboard() {
         else inStock++;
       }
 
-      const createdTime = p.date_created ? new Date(p.date_created).getTime() : (p.id || 0);
-      if (createdTime > newestTime) {
-        newestTime = createdTime;
-        newest = p;
+      const modTime = p.date_modified
+        ? new Date(p.date_modified).getTime()
+        : p.date_created
+        ? new Date(p.date_created).getTime()
+        : -1;
+      if (modTime > newestModifiedTime) {
+        newestModifiedTime = modTime;
       }
     }
+
+    const lastUpdatedDate =
+      newestModifiedTime > 0
+        ? new Date(newestModifiedTime)
+        : lastSyncTimestamp
+        ? new Date(lastSyncTimestamp)
+        : new Date();
 
     return {
       totalCount: products.length,
       inStockCount: inStock,
       outOfStockCount: outOfStock,
       lowStockCount: lowStock,
-      latestProduct: newest,
+      lastUpdatedDate,
     };
-  }, [products]);
+  }, [products, lastSyncTimestamp]);
 
   // Filtered & Searched Orders List
   const displayOrders = useMemo(() => {
@@ -654,9 +664,9 @@ function PosDashboard() {
                 loading={loading}
               />
               <MetricCard
-                label="Latest Added Item"
-                value={loading ? '' : (catalogStats.latestProduct ? `${catalogStats.latestProduct.name} — ${formatPkr(catalogStats.latestProduct.price)}` : 'None')}
-                sub={loading ? '' : (catalogStats.latestProduct?.date_created ? `Added ${fmtDate(catalogStats.latestProduct.date_created)} · ${fmtTime(catalogStats.latestProduct.date_created)}` : 'No recent items')}
+                label="Last Inventory Update"
+                value={loading ? '' : formatTimeAgo(catalogStats.lastUpdatedDate)}
+                sub={loading ? '' : (catalogStats.lastUpdatedDate ? `Synced ${fmtDate(catalogStats.lastUpdatedDate)} · ${fmtTime(catalogStats.lastUpdatedDate)}` : 'Catalog up-to-date')}
                 tone="default"
                 loading={loading}
                 last

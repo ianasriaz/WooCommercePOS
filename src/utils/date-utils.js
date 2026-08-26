@@ -199,3 +199,33 @@ export const formatOrderDateTime = (input, options = {}) => {
     return `${formatOrderDate(date)} ${formatOrderTime(date)}`;
   }
 };
+
+/**
+ * Formats a date into a human-readable relative time string
+ * (e.g. "Just now", "5m ago", "2h ago", "Yesterday", "3d ago")
+ */
+export const formatTimeAgo = (input) => {
+  const date = parseOrderDate(input);
+  if (!date) return '—';
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 0) return 'Just now';
+
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 30) return `${diffDays}d ago`;
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+
+  return `${Math.floor(diffMonths / 12)}y ago`;
+};
