@@ -68,13 +68,14 @@ export const usePosStore = create(
       }),
       
       updateProducts: (newProducts) => set((state) => {
+        const timestamp = new Date().toISOString();
         if (!Array.isArray(newProducts) || newProducts.length === 0) {
-          return { lastSyncTimestamp: new Date().toISOString() };
+          return { lastSyncTimestamp: timestamp };
         }
         const existingMap = new Map(state.products.map(p => [p.id, p]));
         
         newProducts.forEach(np => {
-          if (np.status && np.status !== 'publish') {
+          if (np.status && np.status !== 'publish' && np.status !== 'private') {
             existingMap.delete(np.id);
           } else {
             const existing = existingMap.get(np.id);
@@ -84,7 +85,7 @@ export const usePosStore = create(
         
         return { 
           products: Array.from(existingMap.values()),
-          lastSyncTimestamp: new Date().toISOString() 
+          lastSyncTimestamp: timestamp 
         };
       }),
 

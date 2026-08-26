@@ -358,12 +358,19 @@ function PosDashboard() {
     }
   }, [hasHydrated]);
 
+  // Live tick to keep relative timestamps (e.g. "Just now", "2m ago") updating in real-time
+  const [, setRelTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setRelTick((t) => t + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
+
   const runLoad = async (manual = false) => {
     if (manual) setRefreshing(true);
     setDashboardError('');
 
     try {
-      // 1. Fetch Today's Sales in the background (Non-blocking SWR)
+      // 1. Fetch Today's Sales in parallel (POS + Online Web orders)
       const salesPromise = fetchTodaysSales()
         .then((sales) => {
           if (Array.isArray(sales) && sales.length > 0) {
@@ -376,22 +383,24 @@ function PosDashboard() {
           console.error('Failed to fetch sales in background', err);
         });
 
-      // 2. Fetch Catalog in the background
-      if (products.length === 0) {
-        setLoading(true);
-        const catalog = await fetchProducts(null, (batch) => {
-          updateProducts(batch);
-          setLoading(false);
-        });
-        setProducts(catalog);
-      } else if (lastSyncTimestamp) {
-        const deltaCatalog = await fetchProducts(lastSyncTimestamp);
-        if (Array.isArray(deltaCatalog) && deltaCatalog.length > 0) {
-          updateProducts(deltaCatalog);
+      // 2. Fetch Catalog updates (all changes since last sync: prices, stock, additions, deletions)
+      const catalogPromise = (async () => {
+        if (products.length === 0) {
+          setLoading(true);
+          const catalog = await fetchProducts(null, (batch) => {
+            updateProducts(batch);
+            setLoading(false);
+          });
+          setProducts(catalog);
+        } else {
+          const deltaCatalog = await fetchProducts(lastSyncTimestamp);
+          updateProducts(deltaCatalog || []);
         }
-      }
+      })().catch((err) => {
+        console.error('Failed to sync catalog in background', err);
+      });
 
-      await salesPromise;
+      await Promise.all([salesPromise, catalogPromise]);
     } catch {
       setDashboardError('Failed to load dashboard data. Please check your connection.');
     } finally {
@@ -423,8 +432,8 @@ function PosDashboard() {
             reconcilePosOrders(sales);
           }
           setTodayOrders(mergeOrders(sales));
-          if (Array.isArray(deltaProducts) && deltaProducts.length > 0) {
-            updateProducts(deltaProducts);
+          if (deltaProducts !== null) {
+            updateProducts(deltaProducts || []);
           }
         }
       } catch (error) {
@@ -593,23 +602,9 @@ function PosDashboard() {
         if (p.stock_status === 'outofstock') outOfStock++;
         else inStock++;
       }
-
-      const modTime = p.date_modified
-        ? new Date(p.date_modified).getTime()
-        : p.date_created
-        ? new Date(p.date_created).getTime()
-        : -1;
-      if (modTime > newestModifiedTime) {
-        newestModifiedTime = modTime;
-      }
     }
 
-    const lastUpdatedDate =
-      newestModifiedTime > 0
-        ? new Date(newestModifiedTime)
-        : lastSyncTimestamp
-        ? new Date(lastSyncTimestamp)
-        : new Date();
+    const lastUpdatedDate = lastSyncTimestamp ? new Date(lastSyncTimestamp) : new Date();
 
     return {
       totalCount: products.length,
