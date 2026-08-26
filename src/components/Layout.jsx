@@ -75,38 +75,63 @@ export default function Layout({ children }) {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @media (max-width: 640px) {
+          .layout-header {
+            padding: 0 16px !important;
+            height: 56px !important;
+          }
+          .layout-brand-text {
+            font-size: 15px !important;
+          }
+          .layout-actions {
+            gap: 8px !important;
+          }
+          .layout-btn-fullscreen {
+            display: none !important;
+          }
+          .layout-signout-text {
+            display: none !important;
+          }
+          .layout-signout-btn {
+            padding: 8px !important;
+            border-radius: 50% !important;
+            width: 34px !important;
+            height: 34px !important;
+            justify-content: center !important;
+          }
+        }
       `}</style>
 
       {/* ── Top Navigation Bar ───────────────────────────────────────────── */}
-      <header style={{
+      <header className="layout-header" style={{
         height: 64, background: '#ffffff', borderBottom: '1px solid #e2e8f0',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px', flexShrink: 0, position: 'sticky', top: 0, zIndex: 40,
       }}>
         {/* Left: Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10,
+            width: 34, height: 34, borderRadius: 9,
             background: 'linear-gradient(135deg, #16a34a 0%, #10b981 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff',
             boxShadow: '0 4px 10px -2px rgba(22, 163, 74, 0.4)', flexShrink: 0
           }}>
-            <IcoScan size={18} />
+            <IcoScan size={17} />
           </div>
-          <span style={{
-            fontSize: 17, fontWeight: 800, color: '#0f172a',
+          <span className="layout-brand-text" style={{
+            fontSize: 16, fontWeight: 800, color: '#0f172a',
             letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1
           }}>
             {storeName || 'POS Store'}
           </span>
         </div>
 
-
-
         {/* Right: Actions / Profile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="layout-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             type="button"
+            className="layout-btn-fullscreen"
             onClick={toggleFullscreen}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -135,6 +160,7 @@ export default function Layout({ children }) {
           </button>
           <button
             type="button"
+            className="layout-signout-btn"
             onClick={() => setIsSignOutModalOpen(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
@@ -144,9 +170,10 @@ export default function Layout({ children }) {
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#fecaca'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+            title="Sign Out"
           >
             <IcoLogOut size={14} />
-            Sign Out
+            <span className="layout-signout-text">Sign Out</span>
           </button>
         </div>
       </header>

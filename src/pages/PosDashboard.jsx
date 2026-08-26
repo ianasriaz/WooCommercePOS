@@ -67,7 +67,7 @@ const IcoChevronRight = ({ size = 14 }) => <Svg size={size} strokeWidth="2"><pol
 const IcoBox = ({ size = 14 }) => <Svg size={size}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></Svg>;
 const IcoReceipt = ({ size = 14 }) => <Svg size={size}><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" /><path d="M16 8h-8" /><path d="M16 12h-8" /><path d="M11 16H8" /></Svg>;
 
-/* ─── Shimmer keyframes ─────────────────────────────────────── */
+/* ─── Shimmer keyframes & Mobile Styles ─────────────────────── */
 const ShimmerStyle = () => (
   <style>{`
     @keyframes posShimmer {
@@ -90,6 +90,107 @@ const ShimmerStyle = () => (
     .live-pulse-dot {
       animation: pulseGreen 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
+
+    /* Mobile responsive layout overrides */
+    @media (max-width: 768px) {
+      .dashboard-header {
+        padding: 16px 16px 0 16px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+      }
+      .dashboard-title-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+      }
+      .dashboard-clock-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        font-size: 11.5px !important;
+        width: 100% !important;
+      }
+      .dashboard-actions-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
+        width: 100% !important;
+      }
+      .btn-new-sale-mobile {
+        grid-column: 1 / -1 !important;
+        height: 42px !important;
+        font-size: 13.5px !important;
+        justify-content: center !important;
+      }
+      .btn-action-mobile {
+        height: 38px !important;
+        font-size: 12px !important;
+        padding: 0 8px !important;
+        justify-content: center !important;
+      }
+      .dashboard-content-body {
+        padding: 12px 16px 28px 16px !important;
+      }
+      .metric-strip {
+        flex-direction: column !important;
+      }
+      .metric-card-item {
+        min-width: 100% !important;
+        padding: 14px 16px !important;
+        border-right: none !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+      }
+      .metric-card-item:last-child {
+        border-bottom: none !important;
+      }
+      .metric-card-value {
+        font-size: 22px !important;
+      }
+      .invoices-panel-header {
+        padding: 14px 16px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      .invoices-header-top {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+      }
+      .invoices-search-container {
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+      .invoices-filter-tabs {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr 1fr !important;
+        gap: 4px !important;
+      }
+      .invoices-filter-tab-btn {
+        padding: 6px 4px !important;
+        text-align: center !important;
+        font-size: 11px !important;
+      }
+      .desktop-invoices-table {
+        display: none !important;
+      }
+      .mobile-invoices-list {
+        display: flex !important;
+        flex-direction: column !important;
+      }
+    }
+    @media (min-width: 769px) {
+      .mobile-invoices-list {
+        display: none !important;
+      }
+      .desktop-invoices-table {
+        display: block !important;
+      }
+    }
   `}</style>
 );
 
@@ -105,7 +206,7 @@ function LiveClock() {
     return () => clearInterval(id);
   }, []);
   return (
-    <span style={{ fontFamily: T.mono, fontSize: 12.5, fontWeight: 500, color: T.inkSoft, letterSpacing: '0.01em' }}>
+    <span style={{ fontFamily: T.mono, fontSize: 12, fontWeight: 500, color: T.inkSoft, letterSpacing: '0.01em' }}>
       {fmtDate(t)} · {fmtTime(t)}
     </span>
   );
@@ -123,12 +224,13 @@ const MetricCard = ({ label, value, sub, tone = 'default', loading, last, onClic
   return (
     <div
       onClick={onClick}
+      className="metric-card-item"
       style={{
         flex: '1 1 0',
         minWidth: 200,
-        padding: '20px 24px',
+        padding: '18px 22px',
         borderRight: last ? 'none' : `1px solid ${T.line}`,
-        display: 'flex', flexDirection: 'column', gap: 8,
+        display: 'flex', flexDirection: 'column', gap: 6,
         cursor: onClick ? 'pointer' : 'default',
         background: active ? '#f0fdf4' : 'transparent',
         transition: 'background 0.15s ease',
@@ -142,19 +244,22 @@ const MetricCard = ({ label, value, sub, tone = 'default', loading, last, onClic
       </span>
       {loading ? (
         <>
-          <Skel w="72%" h={28} />
+          <Skel w="72%" h={26} />
           <Skel w="45%" h={12} />
         </>
       ) : (
         <>
-          <span style={{
-            fontFamily: T.mono, fontSize: 26, fontWeight: 700, color: toneColor,
-            letterSpacing: '-0.02em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
+          <span
+            className="metric-card-value"
+            style={{
+              fontFamily: T.mono, fontSize: 24, fontWeight: 700, color: toneColor,
+              letterSpacing: '-0.02em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+          >
             {value}
           </span>
-          <span style={{ fontSize: 12, color: T.inkFaint, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span style={{ fontSize: 11.5, color: T.inkFaint, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {sub}
           </span>
         </>
@@ -196,7 +301,6 @@ function PosDashboard() {
   const setProducts = usePosStore((s) => s.setProducts);
   const updateProducts = usePosStore((s) => s.updateProducts);
   const lastSyncTimestamp = usePosStore((s) => s.lastSyncTimestamp);
-
   const hasHydrated = usePosStore((s) => s._hasHydrated);
 
   const [loading, setLoading] = useState(!hasHydrated && products.length === 0);
@@ -548,37 +652,41 @@ function PosDashboard() {
       <div style={{ fontFamily: T.sans, background: T.canvas, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Top Header ────────────────────────────────────────── */}
-        <header style={{
+        <header className="dashboard-header" style={{
           padding: '24px 32px 0 32px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: T.ink, letterSpacing: '-0.02em' }}>
-              Dashboard
-            </h1>
-            <span style={{ width: 1, height: 16, background: T.line }} />
-            <LiveClock />
-            
-            {/* Clean minimal live dot matching day/date typography */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 500, color: T.inkSoft }}>
-              <span className={refreshing ? '' : 'live-pulse-dot'} style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: refreshing ? '#d97706' : '#16a34a',
-                display: 'inline-block'
-              }} />
-              <span>{refreshing ? 'Syncing...' : 'Live'}</span>
+          <div className="dashboard-title-row" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: T.ink, letterSpacing: '-0.02em' }}>
+                Dashboard
+              </h1>
+              {/* Clean minimal live dot matching day/date typography */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: T.inkSoft }}>
+                <span className={refreshing ? '' : 'live-pulse-dot'} style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: refreshing ? '#d97706' : '#16a34a',
+                  display: 'inline-block'
+                }} />
+                <span>{refreshing ? 'Syncing' : 'Live'}</span>
+              </div>
+            </div>
+
+            <div className="dashboard-clock-row">
+              <LiveClock />
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="dashboard-actions-grid" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               type="button"
+              className="btn-action-mobile"
               onClick={() => runLoad(true)}
               disabled={refreshing}
               style={{
-                display: 'flex', alignItems: 'center', gap: 7, margin: 0,
+                display: 'flex', alignItems: 'center', gap: 6, margin: 0,
                 background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, boxSizing: 'border-box',
-                color: T.inkSoft, padding: '0 16px', height: 40, fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit',
+                color: T.inkSoft, padding: '0 14px', height: 38, fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
                 cursor: refreshing ? 'wait' : 'pointer', opacity: refreshing ? 0.6 : 1,
                 appearance: 'none', WebkitAppearance: 'none',
               }}
@@ -591,26 +699,28 @@ function PosDashboard() {
 
             <button
               type="button"
+              className="btn-action-mobile"
               onClick={() => setShowBarcodeModal(true)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 7, margin: 0,
+                display: 'flex', alignItems: 'center', gap: 6, margin: 0,
                 background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8, boxSizing: 'border-box',
-                color: T.inkSoft, padding: '0 16px', height: 40, fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit',
+                color: T.inkSoft, padding: '0 14px', height: 38, fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
                 cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
               }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.inkFaint; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.line; }}
             >
-              <IcoBarcode size={14} />
-              Print Barcodes
+              <IcoBarcode size={13} />
+              Barcodes
             </button>
 
             <Link
               to="/sale"
+              className="btn-new-sale-mobile"
               style={{
-                display: 'flex', alignItems: 'center', gap: 8, margin: 0,
+                display: 'flex', alignItems: 'center', gap: 7, margin: 0,
                 background: T.accent, border: `1px solid ${T.accent}`, color: '#ffffff', borderRadius: 8, boxSizing: 'border-box',
-                padding: '0 20px', height: 40, textDecoration: 'none', fontWeight: 700, fontSize: 13.5, fontFamily: 'inherit',
+                padding: '0 18px', height: 38, textDecoration: 'none', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
                 letterSpacing: '-0.005em', transition: 'background 0.12s ease',
                 appearance: 'none', WebkitAppearance: 'none',
               }}
@@ -624,7 +734,7 @@ function PosDashboard() {
         </header>
 
         {/* ── Body ────────────────────────────────────────────── */}
-        <div style={{ padding: '20px 32px 32px 32px', overflowY: 'auto', flex: 1 }}>
+        <div className="dashboard-content-body" style={{ padding: '20px 32px 32px 32px', overflowY: 'auto', flex: 1 }}>
 
           {dashboardError && (
             <div style={{
@@ -639,9 +749,9 @@ function PosDashboard() {
           {/* ── ROW 1: SALES & REVENUE KPI STRIP (3 CARDS) ────── */}
           <div style={{
             background: T.surface, border: `1px solid ${T.line}`, borderRadius: 10,
-            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 16, overflow: 'hidden'
+            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 14, overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            <div className="metric-strip" style={{ display: 'flex', flexWrap: 'wrap' }}>
               <MetricCard
                 label="Today Sales"
                 value={salesLoading ? '' : formatPkr(summary.totalSales)}
@@ -670,9 +780,9 @@ function PosDashboard() {
           {/* ── ROW 2: INVENTORY & CATALOG KPI STRIP (3 CARDS) ── */}
           <div style={{
             background: T.surface, border: `1px solid ${T.line}`, borderRadius: 10,
-            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 20, overflow: 'hidden'
+            boxShadow: '0 1px 3px rgba(15,23,42,0.04)', marginBottom: 18, overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            <div className="metric-strip" style={{ display: 'flex', flexWrap: 'wrap' }}>
               <MetricCard
                 label="Total Catalog"
                 value={loading ? '' : `${catalogStats.totalCount.toLocaleString()} items`}
@@ -700,12 +810,12 @@ function PosDashboard() {
 
           {/* ── RECENT IN-STORE INVOICES TABLE SECTION ─────────── */}
           <Panel>
-            <div style={{
+            <div className="invoices-panel-header" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '16px 20px', borderBottom: `1px solid ${T.lineSoft}`, gap: 12, flexWrap: 'wrap'
             }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: T.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div className="invoices-header-top" style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: T.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <IcoReceipt size={16} />
                   Recent In-Store Invoices
                 </span>
@@ -715,15 +825,15 @@ function PosDashboard() {
               </div>
 
               {/* Instant Search Box */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, maxWidth: 360 }}>
+              <div className="invoices-search-container" style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, maxWidth: 360 }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc',
-                  border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', width: '100%'
+                  border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 10px', width: '100%'
                 }}>
                   <IcoSearch size={13} />
                   <input
                     type="text"
-                    placeholder="Search invoice #, customer, phone..."
+                    placeholder="Search invoice #, customer..."
                     value={ordersSearch}
                     onChange={(e) => setOrdersSearch(e.target.value)}
                     style={{
@@ -744,7 +854,7 @@ function PosDashboard() {
               </div>
 
               {/* Orders Filter Tabs */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div className="invoices-filter-tabs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {[
                   { id: 'all', label: 'All Invoices' },
                   { id: 'in-store', label: 'POS Terminal' },
@@ -753,6 +863,7 @@ function PosDashboard() {
                   <button
                     key={tab.id}
                     type="button"
+                    className="invoices-filter-tab-btn"
                     onClick={() => setOrdersFilter(tab.id)}
                     style={{
                       padding: '5px 10px', borderRadius: 6, border: 'none',
@@ -771,7 +882,7 @@ function PosDashboard() {
             {/* Invoices List Content */}
             {salesLoading ? (
               <div style={{ padding: '24px 20px' }}>
-                {[...Array(5)].map((_, i) => (
+                {[...Array(4)].map((_, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
                     <Skel w={140} h={16} />
                     <Skel w={100} h={14} />
@@ -780,15 +891,15 @@ function PosDashboard() {
                 ))}
               </div>
             ) : displayOrders.length === 0 ? (
-              <div style={{ padding: '56px 20px', textAlign: 'center' }}>
+              <div style={{ padding: '48px 20px', textAlign: 'center' }}>
                 <div style={{
-                  width: 48, height: 48, borderRadius: '50%', background: '#f1f5f9',
+                  width: 44, height: 44, borderRadius: '50%', background: '#f1f5f9',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: T.inkSoft
                 }}>
-                  <IcoReceipt size={22} />
+                  <IcoReceipt size={20} />
                 </div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: T.ink, margin: '0 0 6px' }}>No invoices recorded today</p>
-                <p style={{ fontSize: 13, color: T.inkSoft, margin: '0 0 16px' }}>Completed POS sales and web orders will appear here automatically.</p>
+                <p style={{ fontSize: 14.5, fontWeight: 700, color: T.ink, margin: '0 0 6px' }}>No invoices recorded today</p>
+                <p style={{ fontSize: 12.5, color: T.inkSoft, margin: '0 0 16px' }}>Completed POS sales and web orders will appear here automatically.</p>
                 <Link
                   to="/sale"
                   style={{
@@ -802,139 +913,220 @@ function PosDashboard() {
                 </Link>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ background: '#fafbfc', borderBottom: `1px solid ${T.line}` }}>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Invoice #</th>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Customer</th>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Items</th>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Payment & Status</th>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Time</th>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', textAlign: 'right' }}>Total</th>
-                      <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', textAlign: 'right' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayOrders.map((order) => {
-                      const channel = getOrderChannel(order);
-                      const isInStore = channel === 'in-store';
-                      const isSelected = selectedOrder?.id === order.id;
-                      const customerName = `${order.billing?.first_name || ''} ${order.billing?.last_name || ''}`.trim() || 'Walk-in Customer';
-                      const itemsCount = (order.line_items || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
+              <>
+                {/* Desktop Full Table (min-width: 769px) */}
+                <div className="desktop-invoices-table" style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ background: '#fafbfc', borderBottom: `1px solid ${T.line}` }}>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Invoice #</th>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Customer</th>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Items</th>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Payment & Status</th>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Time</th>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', textAlign: 'right' }}>Total</th>
+                        <th style={{ padding: '10px 20px', fontSize: 11, fontWeight: 700, color: T.inkFaint, letterSpacing: '0.05em', textTransform: 'uppercase', textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayOrders.map((order) => {
+                        const channel = getOrderChannel(order);
+                        const isInStore = channel === 'in-store';
+                        const isSelected = selectedOrder?.id === order.id;
+                        const customerName = `${order.billing?.first_name || ''} ${order.billing?.last_name || ''}`.trim() || 'Walk-in Customer';
+                        const itemsCount = (order.line_items || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
 
-                      return (
-                        <tr
-                          key={order.id}
-                          onClick={() => setSelectedOrder(order)}
-                          style={{
-                            borderBottom: `1px solid ${T.lineSoft}`,
-                            background: isSelected ? '#f0fdf4' : 'transparent',
-                            cursor: 'pointer',
-                            transition: 'background 0.12s ease',
-                          }}
-                          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
-                          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          {/* Invoice # & Channel */}
-                          <td style={{ padding: '14px 20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>
-                                #{order.id}
-                              </span>
-                              <span style={{
-                                fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                                background: isInStore ? '#ecfdf5' : '#eff6ff',
-                                color: isInStore ? '#065f46' : '#1e40af', textTransform: 'uppercase'
-                              }}>
-                                {isInStore ? 'POS' : 'Web'}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* Customer Name & Phone */}
-                          <td style={{ padding: '14px 20px' }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
-                              {customerName}
-                            </div>
-                            {order.billing?.phone && (
-                              <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
-                                {order.billing.phone}
+                        return (
+                          <tr
+                            key={order.id}
+                            onClick={() => setSelectedOrder(order)}
+                            style={{
+                              borderBottom: `1px solid ${T.lineSoft}`,
+                              background: isSelected ? '#f0fdf4' : 'transparent',
+                              cursor: 'pointer',
+                              transition: 'background 0.12s ease',
+                            }}
+                            onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                            onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <td style={{ padding: '14px 20px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>
+                                  #{order.id}
+                                </span>
+                                <span style={{
+                                  fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                                  background: isInStore ? '#ecfdf5' : '#eff6ff',
+                                  color: isInStore ? '#065f46' : '#1e40af', textTransform: 'uppercase'
+                                }}>
+                                  {isInStore ? 'POS' : 'Web'}
+                                </span>
                               </div>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Line items summary */}
-                          <td style={{ padding: '14px 20px' }}>
-                            <span style={{
-                              fontSize: 12, fontWeight: 600, color: T.inkSoft,
-                              background: '#f1f5f9', padding: '3px 7px', borderRadius: 4
-                            }}>
-                              {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
-                            </span>
-                          </td>
+                            <td style={{ padding: '14px 20px' }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                                {customerName}
+                              </div>
+                              {order.billing?.phone && (
+                                <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
+                                  {order.billing.phone}
+                                </div>
+                              )}
+                            </td>
 
-                          {/* Payment method & Status */}
-                          <td style={{ padding: '14px 20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <td style={{ padding: '14px 20px' }}>
                               <span style={{
-                                width: 6, height: 6, borderRadius: '50%',
-                                background: order.status === 'completed' ? T.accent : T.warn
-                              }} />
-                              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>
-                                {order.payment_method_title || order.payment_method || 'Cash'}
-                              </span>
-                              <span style={{
-                                fontSize: 11, color: T.inkFaint, textTransform: 'capitalize'
+                                fontSize: 12, fontWeight: 600, color: T.inkSoft,
+                                background: '#f1f5f9', padding: '3px 7px', borderRadius: 4
                               }}>
-                                ({order.status})
+                                {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
                               </span>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Timestamp */}
-                          <td style={{ padding: '14px 20px', fontSize: 12, color: T.inkSoft }}>
-                            {order.date_created || order.date_created_gmt ? fmtTime(order) : '—'}
-                          </td>
+                            <td style={{ padding: '14px 20px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{
+                                  width: 6, height: 6, borderRadius: '50%',
+                                  background: order.status === 'completed' ? T.accent : T.warn
+                                }} />
+                                <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>
+                                  {order.payment_method_title || order.payment_method || 'Cash'}
+                                </span>
+                                <span style={{
+                                  fontSize: 11, color: T.inkFaint, textTransform: 'capitalize'
+                                }}>
+                                  ({order.status})
+                                </span>
+                              </div>
+                            </td>
 
-                          {/* Total */}
-                          <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                            <td style={{ padding: '14px 20px', fontSize: 12, color: T.inkSoft }}>
+                              {order.date_created || order.date_created_gmt ? fmtTime(order) : '—'}
+                            </td>
+
+                            <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                              <span style={{
+                                fontFamily: T.mono, fontSize: 14.5, fontWeight: 700, color: T.ink,
+                                fontVariantNumeric: 'tabular-nums'
+                              }}>
+                                {formatPkr(order.total)}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReceiptOrder(order);
+                                  setIsReceiptOpen(true);
+                                }}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                                  background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
+                                  padding: '5px 10px', fontSize: 11.5, fontWeight: 600, color: T.ink,
+                                  cursor: 'pointer'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                              >
+                                <IcoPrinter size={12} />
+                                Receipt
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Native Card View (max-width: 768px) */}
+                <div className="mobile-invoices-list">
+                  {displayOrders.map((order) => {
+                    const channel = getOrderChannel(order);
+                    const isInStore = channel === 'in-store';
+                    const isSelected = selectedOrder?.id === order.id;
+                    const customerName = `${order.billing?.first_name || ''} ${order.billing?.last_name || ''}`.trim() || 'Walk-in Customer';
+                    const itemsCount = (order.line_items || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
+
+                    return (
+                      <div
+                        key={order.id}
+                        onClick={() => setSelectedOrder(order)}
+                        style={{
+                          padding: '13px 16px',
+                          borderBottom: `1px solid ${T.lineSoft}`,
+                          background: isSelected ? '#f0fdf4' : 'transparent',
+                          cursor: 'pointer',
+                          display: 'flex', flexDirection: 'column', gap: 6,
+                        }}
+                      >
+                        {/* Top: Invoice # + Channel + Time + Total */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>#{order.id}</span>
                             <span style={{
-                              fontFamily: T.mono, fontSize: 14.5, fontWeight: 700, color: T.ink,
-                              fontVariantNumeric: 'tabular-nums'
+                              fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+                              background: isInStore ? '#ecfdf5' : '#eff6ff',
+                              color: isInStore ? '#065f46' : '#1e40af', textTransform: 'uppercase'
                             }}>
-                              {formatPkr(order.total)}
+                              {isInStore ? 'POS' : 'Web'}
                             </span>
-                          </td>
+                            <span style={{ fontSize: 11.5, color: T.inkFaint }}>
+                              {order.date_created || order.date_created_gmt ? fmtTime(order) : ''}
+                            </span>
+                          </div>
+                          <span style={{ fontFamily: T.mono, fontSize: 14.5, fontWeight: 800, color: T.ink }}>
+                            {formatPkr(order.total)}
+                          </span>
+                        </div>
 
-                          {/* Action */}
-                          <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setReceiptOrder(order);
-                                setIsReceiptOpen(true);
-                              }}
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 5,
-                                background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
-                                padding: '5px 10px', fontSize: 11.5, fontWeight: 600, color: T.ink,
-                                cursor: 'pointer'
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
-                            >
-                              <IcoPrinter size={12} />
-                              Receipt
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        {/* Middle: Customer + Items count */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {customerName}
+                            {order.billing?.phone ? ` · ${order.billing.phone}` : ''}
+                          </div>
+                          <span style={{ fontSize: 11, color: T.inkFaint, flexShrink: 0 }}>
+                            {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+                          </span>
+                        </div>
+
+                        {/* Bottom: Payment + Status + Receipt button */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: order.status === 'completed' ? T.accent : T.warn }} />
+                            <span style={{ fontSize: 11.5, fontWeight: 600, color: T.inkSoft }}>
+                              {order.payment_method_title || order.payment_method || 'Cash'}
+                            </span>
+                            <span style={{ fontSize: 10.5, color: T.inkFaint, textTransform: 'capitalize' }}>
+                              ({order.status})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReceiptOrder(order);
+                              setIsReceiptOpen(true);
+                            }}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
+                              padding: '3px 8px', fontSize: 11, fontWeight: 600, color: T.ink, cursor: 'pointer'
+                            }}
+                          >
+                            <IcoPrinter size={11} />
+                            Receipt
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </Panel>
         </div>
