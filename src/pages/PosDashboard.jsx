@@ -317,28 +317,36 @@ function PosDashboard() {
 
   const confirmedOrdersRef = useRef(new Map());
 
-  const mergeOrders = useCallback((serverOrders = []) => {
+  const mergeOrders = useCallback((serverOrders = null) => {
     const orderMap = new Map();
 
-    (serverOrders || []).forEach((order) => {
-      if (order?.id) orderMap.set(order.id, order);
-    });
+    if (Array.isArray(serverOrders)) {
+      // Server returned fresh list: server is authoritative for all synced orders
+      serverOrders.forEach((order) => {
+        if (order?.id) orderMap.set(order.id, order);
+      });
+      // Clear confirmedOrdersRef for orders that are now accounted for by the server
+      const serverIdSet = new Set(serverOrders.map((o) => o.id));
+      confirmedOrdersRef.current.forEach((_, id) => {
+        if (serverIdSet.has(id)) {
+          confirmedOrdersRef.current.delete(id);
+        }
+      });
+    } else {
+      // Initial 0ms SWR hydration from local IndexedDB cache
+      posOrders.forEach((order) => {
+        if (order?.id && !orderMap.has(order.id)) {
+          orderMap.set(order.id, order);
+        }
+      });
+      confirmedOrdersRef.current.forEach((order, orderId) => {
+        if (orderId && !orderMap.has(orderId)) {
+          orderMap.set(orderId, order);
+        }
+      });
+    }
 
-    posOrders.forEach((order) => {
-      if (order?.id && !orderMap.has(order.id)) {
-        orderMap.set(order.id, order);
-      }
-    });
-
-    confirmedOrdersRef.current.forEach((order, orderId) => {
-      if (orderId && !orderMap.has(orderId)) {
-        orderMap.set(orderId, order);
-      }
-    });
-
-    const mergedList = Array.from(orderMap.values()).filter((order) => {
-      return isOrderFromToday(order);
-    });
+    const mergedList = Array.from(orderMap.values()).filter((order) => isOrderFromToday(order));
 
     return mergedList.sort((a, b) => {
       const dateA = parseOrderDate(a)?.getTime() || 0;
@@ -350,7 +358,7 @@ function PosDashboard() {
   // Instant SWR: Populate cached orders and catalog stats as soon as IndexedDB hydrates (0ms display)
   useEffect(() => {
     if (hasHydrated) {
-      setTodayOrders(mergeOrders([]));
+      setTodayOrders(mergeOrders(null));
       if (products.length > 0) {
         setLoading(false);
       }

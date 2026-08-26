@@ -41,21 +41,31 @@ export const usePosStore = create(
       })),
 
       reconcilePosOrders: (serverOrders) => set((state) => {
+        if (!Array.isArray(serverOrders)) return {};
         const serverOrderMap = new Map(serverOrders.map((o) => [o.id, o]));
-        // Keep recent local orders (past 48h) or merge updated server order
         const now = Date.now();
-        const updatedPosOrders = state.posOrders.map((localOrder) => {
+
+        // If an order from today was trashed/deleted in WP Admin, it will not be in serverOrderMap.
+        // Purge today's missing server orders while keeping non-today recent orders (< 48h).
+        const updatedPosOrders = [];
+
+        state.posOrders.forEach((localOrder) => {
           if (serverOrderMap.has(localOrder.id)) {
-            return { ...localOrder, ...serverOrderMap.get(localOrder.id) };
+            // Merge updated active server order
+            updatedPosOrders.push({ ...localOrder, ...serverOrderMap.get(localOrder.id) });
+            serverOrderMap.delete(localOrder.id);
+          } else {
+            const orderDate = new Date(localOrder.date_created || localOrder.date_created_gmt || 0).getTime();
+            const isToday = (now - orderDate) < 24 * 60 * 60 * 1000;
+            // If it's a today's order with a server ID that is missing from active orders, DROP it (trashed in WP Admin)
+            if (!isToday && (now - orderDate) < 48 * 60 * 60 * 1000) {
+              updatedPosOrders.push(localOrder);
+            }
           }
-          return localOrder;
-        }).filter((order) => {
-          const orderDate = new Date(order.date_created || order.date_created_gmt || 0).getTime();
-          return (now - orderDate) < 48 * 60 * 60 * 1000;
         });
 
-        // Add any server order marked as pos order not yet in posOrders
-        serverOrders.forEach((so) => {
+        // Add any remaining server orders that were placed via POS
+        serverOrderMap.forEach((so) => {
           const isPos = so.payment_method === 'pos_cash' ||
             so.created_via === 'pos-terminal' ||
             (Array.isArray(so.meta_data) && so.meta_data.some((m) => m.key === '_pos_order' && m.value === 'yes'));
