@@ -75,16 +75,15 @@ The MVP must remain focused on the cashier workflow. Do not add unrelated screen
 
 ---
 
-## Mandatory AI Rules
+### Rule 5: Mandatory Strict Changelog Self-Logging
+Every single implementation, bug fix, UI change, architectural adjustment, or feature update made to this codebase **MUST ALWAYS** be recorded in `.docs/AI_CHANGELOG.md` immediately upon completion, even if the user does NOT explicitly ask to report it.
 
-### Rule 5: Mandatory AI Self-Logging
-Any AI task completed against this repository must update `.docs/AI_CHANGELOG.md` with a new entry describing:
-- what changed
-- why it changed
-- relevant files touched
-- verification performed
-
-This requirement is mandatory for every completed task.
+Each changelog entry must include:
+- `## [YYYY-MM-DD] <Descriptive Title>`
+- `### What changed`: Detailed bullet points of every UI, logic, or state change made
+- `### Why`: Clear explanation of the root cause or feature requirement
+- `### Files Touched`: Exact list of every file modified or created
+- `### Verification Performed`: Build output and verification tests performed
 
 ### Rule 6: Pre-Flight Check
 Before executing any core change, the AI must provide a short pre-flight plan with:

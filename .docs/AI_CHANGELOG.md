@@ -100,3 +100,111 @@ No application logic in [src](../src) was modified during this documentation pha
 ### Files Touched
 - `src/pages/PosDashboard.jsx`
 - `.docs/AI_CHANGELOG.md`
+
+## [2026-08-26] Universal Timezone & 0ms Instant SWR Dashboard Engine + React #185 Fix
+
+### What changed
+- **Universal Dynamic Timezone System (`src/utils/date-utils.js`)**: Integrated IANA automatic timezone detection (`Intl.DateTimeFormat`) and universal UTC parser (`parseOrderDate`) supporting GMT ISO timestamps, local formats, and unix timestamps.
+- **0ms Instant Cache SWR**: Populated today's sales and catalog stats immediately upon IndexedDB hydration without blocking the UI with loaders.
+- **React Minified Error #185 Elimination**: Fixed `mergeOrders` to be a pure deterministic function, preventing re-render loop mutations and keeping Zustand store updates isolated to promise completions.
+- **Date & Time Tagging on Product Cards**: Added order creation date and time labels (`formatOrderDate` + `formatOrderTime`) to product cards in `PosTerminal.jsx`.
+- **Card Title Update**: Renamed dashboard metric from "Last Inventory Update" to "Last Inventory Sync".
+
+### Why
+- Fixed React re-render crash #185 and eliminated 3–5 second white-screen/loading delay on initial POS load.
+- Displays accurate local retail store time across any international timezone.
+
+### Files Touched
+- `src/utils/date-utils.js`
+- `src/pages/PosDashboard.jsx`
+- `src/pages/PosTerminal.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Validated with `npm run build` (0 errors).
+
+---
+
+## [2026-08-26] Mobile Viewport Polish & 0ms Sale Terminal Catalog Hydration
+
+### What changed
+- **Instant 0ms Terminal Hydration**: Added an immediate hydration effect in `PosTerminal.jsx` to clear skeleton placeholders the instant IndexedDB finishes hydrating `products` into memory.
+- **Unified Mobile Topbar Actions**: Unified the mobile Cart button and `< Dashboard` link into a cohesive 34px height button group with matching border-radii, typography, and emerald green item count pills.
+- **4:5 Portrait Image Framing**: Replaced `1:1` square aspect ratio with standard `4:5` portrait aspect ratio to show clothing items (polos, shirts) 100% visible from collar to hem without clipping.
+- **Dashboard Metric Card Numeric Formatting**: Updated "Total Catalog" and "Stock Alerts" to display strictly numeric counts (`1,957` and `0`) without redundant suffix text.
+
+### Why
+- Eliminates unnecessary skeleton loading delays in the Sale Terminal.
+- Provides consistent mobile ergonomics and uncropped fashion product card displays.
+
+### Files Touched
+- `src/pages/PosTerminal.jsx`
+- `src/pages/PosDashboard.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Built and verified with `npm run build` (0 errors).
+
+---
+
+## [2026-08-26] Variable Product Options Bugfix & IndexedDB Variations Cache
+
+### What changed
+- **Method Name Alignment**: Added `cacheVariations` alias to `usePosStore.js` to match the invocation in `PosTerminal.jsx`.
+- **Persistent Variations Cache**: Added `variationsCache` to the store's `partialize` configuration, persisting loaded variations in IndexedDB for 0ms instant offline recall.
+- **In-Modal Retry Action**: Added a **`Retry loading options`** button inside the variations modal for resilient network recovery.
+
+### Why
+- Fixed `"f is not a function"` (`cacheVariations is not a function`) error thrown when clicking variable products like "Imported Polo Shirt".
+
+### Files Touched
+- `src/store/usePosStore.js`
+- `src/pages/PosTerminal.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Production build passed in 26.84s with 0 errors.
+
+---
+
+## [2026-08-26] Authoritative Server Reconciliation for Trashed Orders & Live Sync Timestamp
+
+### What changed
+- **Authoritative WP Admin Reconciliation**: Updated `reconcilePosOrders` in `usePosStore.js` and `mergeOrders` in `PosDashboard.jsx` to treat active server responses as authoritative, purging any local orders that were moved to Trash, Cancelled, or Deleted in WP Admin.
+- **Bidirectional Live Real-Time Sync**: Upgraded the "Sync data" button to execute a parallel sales refresh + delta catalog sync (`modified_after`) that removes trashed products, updates stock/prices, and recalculates revenue.
+- **Synchronized "Last Inventory Sync"**: Bound `lastUpdatedDate` strictly to `lastSyncTimestamp`, immediately displaying **`Just now`** upon sync and ticking dynamically (`Just now` -> `1m ago` -> `2m ago`).
+
+### Why
+- Fixed the issue where orders trashed in WP Admin kept re-appearing on the POS dashboard due to local cache resurrection.
+
+### Files Touched
+- `src/store/usePosStore.js`
+- `src/pages/PosDashboard.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Validated with `npm run build` (0 errors in 17.75s).
+
+---
+
+## [2026-08-26] Mobile-First Barcode Studio & On-Demand Lightweight Loading
+
+### What changed
+- **Eliminated Automatic Catalog-Wide Fetching**: Removed the automated background loop that continuously queried WooCommerce for all variable products on open.
+- **Category-Driven On-Demand Loading**: Added a clean "Select a Category" start state; selecting a category loads only that category's items without whole-catalog network spikes.
+- **Explicit "Start Generate Selected"**: Barcodes/SKUs are generated only when the user explicitly checks items and clicks "Start Generate Selected", batch-saving to WooCommerce in safe chunks of 5.
+- **Mobile Responsive Design**: Added fullscreen mobile modal (`100dvh`), horizontal scrollable category pill strip (`All (1,957)`, `Polos (120)`), and touch-friendly product cards with inline SKU pills and quantity steppers.
+
+### Why
+- Prevents server strain and heavy API flooding when opening the Barcode Studio.
+- Provides a clean, touch-friendly barcode management workflow on phones and tablets.
+
+### Files Touched
+- `src/components/BarcodeGeneratorModal.jsx`
+- `.agents/AGENTS.md`
+- `.docs/CONSTITUTION.md`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Built and validated with `npm run build` (0 errors in 8.05s).
+
