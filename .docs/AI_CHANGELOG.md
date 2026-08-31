@@ -208,3 +208,24 @@ No application logic in [src](../src) was modified during this documentation pha
 ### Verification Performed
 - Built and validated with `npm run build` (0 errors in 8.05s).
 
+---
+
+## [2026-09-01] Fix Checkout Order Payload Parameter Mismatch (e.map is not a function)
+
+### What changed
+- **Universal `createPosOrder` Parameter Support**: Updated `createPosOrder` in `src/api/wc-client.js` to intelligently detect whether it was passed a pre-constructed `orderPayload` object or discrete parameters `(cartItems, customerDetails, paymentOption, discountAmount)`.
+- **Standard Discount Handling**: Updated `orderPayload` in `src/pages/PosTerminal.jsx` to pass `fee_lines` instead of `coupon_lines`, and explicitly set `status: 'completed'` to ensure reliable checkout without requiring pre-existing WooCommerce coupon codes.
+
+### Why
+- In `src/pages/PosTerminal.jsx`, `handleCheckout` called `createPosOrder(orderPayload)` by passing the single order payload object. Because `createPosOrder` in `wc-client.js` expected an array of cart items as its first parameter, it attempted `cartItems.map(...)` on the object, resulting in `e.map is not a function` / `cartItems.map is not a function` error upon invoice confirmation.
+
+### Files Touched
+- `src/api/wc-client.js`
+- `src/pages/PosTerminal.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Ran `npm run build` with Vite; build succeeded with 0 errors.
+
+
+

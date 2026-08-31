@@ -199,44 +199,56 @@ const PAYMENT_METHOD_MAP = {
   },
 };
 
-export const createPosOrder = async (cartItems, customerDetails = {}, paymentOption = 'cash', discountAmount = 0) => {
-  const line_items = cartItems.map((item) => ({
-    product_id: item.id,
-    variation_id: item.variation_id || undefined,
-    quantity: item.quantity,
-  }));
+export const createPosOrder = async (cartItemsOrPayload, customerDetails = {}, paymentOption = 'cash', discountAmount = 0) => {
+  let payload;
 
-  const selectedPayment = PAYMENT_METHOD_MAP[paymentOption] || PAYMENT_METHOD_MAP.cash;
+  if (cartItemsOrPayload && !Array.isArray(cartItemsOrPayload) && typeof cartItemsOrPayload === 'object') {
+    payload = {
+      status: 'completed',
+      set_paid: true,
+      created_via: 'pos-terminal',
+      ...cartItemsOrPayload,
+    };
+  } else {
+    const cartItems = Array.isArray(cartItemsOrPayload) ? cartItemsOrPayload : [];
+    const line_items = cartItems.map((item) => ({
+      product_id: item.id,
+      variation_id: item.variation_id || undefined,
+      quantity: item.quantity,
+    }));
 
-  const billing = {
-    email: 'pos-checkout@store.local'
-  };
-  if (customerDetails.name?.trim()) billing.first_name = customerDetails.name.trim();
-  if (customerDetails.email?.trim()) billing.email = customerDetails.email.trim();
-  if (customerDetails.phone?.trim()) billing.phone = customerDetails.phone.trim();
+    const selectedPayment = PAYMENT_METHOD_MAP[paymentOption] || PAYMENT_METHOD_MAP.cash;
 
-  const payload = {
-    status: 'completed',
-    set_paid: true,
-    created_via: 'pos-terminal',
-    payment_method: selectedPayment.method,
-    payment_method_title: selectedPayment.title,
-    meta_data: [
-      { key: '_pos_order', value: 'yes' },
-      { key: '_pos_source', value: 'pos-terminal' },
-    ],
-    billing,
-    line_items,
-  };
+    const billing = {
+      email: 'pos-checkout@store.local'
+    };
+    if (customerDetails.name?.trim()) billing.first_name = customerDetails.name.trim();
+    if (customerDetails.email?.trim()) billing.email = customerDetails.email.trim();
+    if (customerDetails.phone?.trim()) billing.phone = customerDetails.phone.trim();
 
-  const parsedDiscount = Number.parseFloat(discountAmount);
-  if (Number.isFinite(parsedDiscount) && parsedDiscount > 0) {
-    payload.fee_lines = [
-      {
-        name: 'POS Discount',
-        total: `-${parsedDiscount}`,
-      },
-    ];
+    payload = {
+      status: 'completed',
+      set_paid: true,
+      created_via: 'pos-terminal',
+      payment_method: selectedPayment.method,
+      payment_method_title: selectedPayment.title,
+      meta_data: [
+        { key: '_pos_order', value: 'yes' },
+        { key: '_pos_source', value: 'pos-terminal' },
+      ],
+      billing,
+      line_items,
+    };
+
+    const parsedDiscount = Number.parseFloat(discountAmount);
+    if (Number.isFinite(parsedDiscount) && parsedDiscount > 0) {
+      payload.fee_lines = [
+        {
+          name: 'POS Discount',
+          total: `-${parsedDiscount}`,
+        },
+      ];
+    }
   }
 
   try {

@@ -667,6 +667,7 @@ function PosTerminal() {
     try {
       setCheckoutStage('Submitting order…');
       const orderPayload = {
+        status: 'completed',
         payment_method: paymentOption === 'cash' ? 'pos_cash' : 'bacs',
         payment_method_title: paymentOption === 'cash' ? 'POS Cash' : 'Bank Transfer',
         set_paid: true,
@@ -681,7 +682,7 @@ function PosTerminal() {
           variation_id: item.variation_id || 0,
           quantity: item.quantity,
         })),
-        coupon_lines: finalDiscount > 0 ? [{ code: 'POS-DISCOUNT', amount: String(finalDiscount) }] : [],
+        fee_lines: finalDiscount > 0 ? [{ name: 'POS Discount', total: `-${finalDiscount}` }] : [],
         meta_data: [
           { key: '_pos_order', value: 'yes' },
           { key: '_pos_cash_tendered', value: String(parsedCashTendered || finalTotal) },
