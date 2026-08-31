@@ -251,6 +251,26 @@ export const createPosOrder = async (cartItemsOrPayload, customerDetails = {}, p
     }
   }
 
+  // Sanitize billing object to guarantee WooCommerce REST schema validation passes
+  if (payload.billing) {
+    if (!payload.billing.first_name || !String(payload.billing.first_name).trim()) {
+      payload.billing.first_name = 'Walk-in';
+    }
+    if (!payload.billing.last_name || !String(payload.billing.last_name).trim()) {
+      payload.billing.last_name = 'Customer';
+    }
+    const emailVal = payload.billing.email ? String(payload.billing.email).trim() : '';
+    if (!emailVal || !emailVal.includes('@')) {
+      payload.billing.email = 'pos-checkout@store.local';
+    }
+  } else {
+    payload.billing = {
+      first_name: 'Walk-in',
+      last_name: 'Customer',
+      email: 'pos-checkout@store.local',
+    };
+  }
+
   try {
     const response = await wcClient.post('/wc/v3/orders', payload);
     notifyPosOrderCreated(response.data);

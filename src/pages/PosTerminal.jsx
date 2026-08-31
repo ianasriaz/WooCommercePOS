@@ -675,7 +675,7 @@ function PosTerminal() {
           first_name: customerDetails.name.trim() || 'Walk-in',
           last_name: 'Customer',
           phone: customerDetails.phone.trim() || '',
-          email: customerDetails.email.trim() || '',
+          email: customerDetails.email?.trim() || 'pos-checkout@store.local',
         },
         line_items: cart.map((item) => ({
           product_id: item.id,

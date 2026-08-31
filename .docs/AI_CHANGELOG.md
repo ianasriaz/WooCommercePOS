@@ -227,5 +227,25 @@ No application logic in [src](../src) was modified during this documentation pha
 ### Verification Performed
 - Ran `npm run build` with Vite; build succeeded with 0 errors.
 
+---
+
+## [2026-09-01] Fix "Invalid parameter(s): billing" in WooCommerce REST API
+
+### What changed
+- **Billing Object Sanitization**: Added automatic schema validation and fallback sanitization in `createPosOrder` (`src/api/wc-client.js`) and `PosTerminal.jsx` so `billing.email` always provides a valid fallback email (`pos-checkout@store.local`) when optional in the UI.
+- **Ensured First & Last Name Defaults**: Guaranteed `first_name` ('Walk-in') and `last_name` ('Customer') defaults are always non-empty strings.
+
+### Why
+- WordPress/WooCommerce REST API schema validation for `/wc/v3/orders` strictly validates `billing.email` with `is_email()`. Passing an empty string `""` caused WooCommerce to reject the checkout payload with `400 Bad Request: Invalid parameter(s): billing`.
+
+### Files Touched
+- `src/api/wc-client.js`
+- `src/pages/PosTerminal.jsx`
+- `.docs/AI_CHANGELOG.md`
+
+### Verification Performed
+- Ran `npm run build` with Vite; build completed successfully with 0 errors.
+
+
 
 
